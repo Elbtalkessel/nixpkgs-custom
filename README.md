@@ -2,6 +2,7 @@
 
 - [usbdrivetools](https://github.com/satk0/usbdrivetools)
 - [bootdev](https://github.com/bootdotdev/bootdev)
+- [ollama-copilot](https://github.com/bernardo-bruning/ollama-copilot)
 
 ## Usage examples
 
