@@ -18,12 +18,14 @@
           usbdrivetools = pkgs.callPackage ./usbdrivetools { };
           bootdev = pkgs.callPackage ./bootdev { };
           ollama-copilot = pkgs.callPackage ./ollama-copilot { };
+          sddm-themes = pkgs.callPackage ./sddm-themes { };
         }
       );
-      overlays.default = final: prev: {
+      overlays.default = _: prev: {
         inherit (self.packages.${prev.system}) usbdrivetools;
         inherit (self.packages.${prev.system}) bootdev;
         inherit (self.packages.${prev.system}) ollama-copilot;
+        inherit (self.packages.${prev.system}) sddm-themes;
       };
     };
 }
