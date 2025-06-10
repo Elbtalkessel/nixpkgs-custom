@@ -19,6 +19,7 @@
           bootdev = pkgs.callPackage ./bootdev { };
           ollama-copilot = pkgs.callPackage ./ollama-copilot { };
           sddm-themes = pkgs.callPackage ./sddm-themes { };
+          tlm = pkgs.callPackage ./tlm { };
         }
       );
       overlays.default = _: prev: {
@@ -26,6 +27,7 @@
         inherit (self.packages.${prev.system}) bootdev;
         inherit (self.packages.${prev.system}) ollama-copilot;
         inherit (self.packages.${prev.system}) sddm-themes;
+        inherit (self.packages.${prev.system}) tlm;
       };
     };
 }
