@@ -1,5 +1,9 @@
 ## A collection of reusable Nix package definitions and overlays
 
+## Task to do
+
+- Automatic version updates.
+
 ## Usage
 
 - `nix run ./#<name>`
