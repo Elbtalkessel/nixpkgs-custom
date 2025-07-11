@@ -1,12 +1,9 @@
-## A collection of reusable Nix package definitions and overlays.
+## A collection of reusable Nix package definitions and overlays
 
-- [usbdrivetools](https://github.com/satk0/usbdrivetools)
-- [bootdev](https://github.com/bootdotdev/bootdev)
-- [ollama-copilot](https://github.com/bernardo-bruning/ollama-copilot)
+## Usage
 
-## Usage examples
-
-Using Home-Manager
+- `nix run ./#<name>`
+- Using overlay:
 
 ```nix
 {
