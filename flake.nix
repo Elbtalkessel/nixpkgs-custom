@@ -12,6 +12,7 @@
       self,
       nixpkgs,
       nuenv,
+      ...
     }:
     let
       supportedSystems = [ "x86_64-linux" ];
@@ -22,29 +23,36 @@
           inherit system;
           overlays = [ nuenv.overlays.default ];
         };
-    in
-    {
-      packages = forAllSystems (
+
+      # Helper function to list package names by reading the packages/ directory
+      packageNames = builtins.attrNames (builtins.readDir ./packages);
+
+      makePackages =
         system:
         let
           pkgs = pkgsFor system;
         in
-        {
-          usbdrivetools = pkgs.callPackage ./packages/usbdrivetools { };
-          bootdev = pkgs.callPackage ./packages/bootdev { };
-          ollama-copilot = pkgs.callPackage ./packages/ollama-copilot { };
-          sddm-themes = pkgs.callPackage ./packages/sddm-themes { };
-          tlm = pkgs.callPackage ./packages/tlm { };
-          waifu = pkgs.callPackage ./packages/waifu { };
-        }
-      );
-      overlays.default = _: prev: {
-        inherit (self.packages.${prev.system}) usbdrivetools;
-        inherit (self.packages.${prev.system}) bootdev;
-        inherit (self.packages.${prev.system}) ollama-copilot;
-        inherit (self.packages.${prev.system}) sddm-themes;
-        inherit (self.packages.${prev.system}) tlm;
-        inherit (self.packages.${prev.system}) waifu;
-      };
+        builtins.listToAttrs (
+          map (name: {
+            inherit name;
+            value = pkgs.callPackage ./packages/${name} { };
+          }) packageNames
+        );
+    in
+    {
+      packages = forAllSystems (system: makePackages system);
+
+      overlays.default =
+        _: prev:
+        let
+          inherit (prev) system;
+          pkgs = self.packages.${system};
+        in
+        builtins.listToAttrs (
+          map (p: {
+            name = p;
+            value = pkgs.${p};
+          }) packageNames
+        );
     };
 }
