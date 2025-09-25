@@ -1,12 +1,27 @@
 {
   description = "A collection of reusable Nix package definitions and overlays.";
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nuenv = {
+      url = "https://flakehub.com/f/xav-ie/nuenv/*.tar.gz";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
   outputs =
-    { self, nixpkgs }:
+    {
+      self,
+      nixpkgs,
+      nuenv,
+    }:
     let
       supportedSystems = [ "x86_64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-      pkgsFor = system: nixpkgs.legacyPackages.${system};
+      pkgsFor =
+        system:
+        import nixpkgs {
+          inherit system;
+          overlays = [ nuenv.overlays.default ];
+        };
     in
     {
       packages = forAllSystems (
@@ -20,6 +35,7 @@
           ollama-copilot = pkgs.callPackage ./ollama-copilot { };
           sddm-themes = pkgs.callPackage ./sddm-themes { };
           tlm = pkgs.callPackage ./tlm { };
+          waifu = pkgs.callPackage ./waifu { };
         }
       );
       overlays.default = _: prev: {
@@ -28,6 +44,7 @@
         inherit (self.packages.${prev.system}) ollama-copilot;
         inherit (self.packages.${prev.system}) sddm-themes;
         inherit (self.packages.${prev.system}) tlm;
+        inherit (self.packages.${prev.system}) waifu;
       };
     };
 }

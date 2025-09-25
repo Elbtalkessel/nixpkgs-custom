@@ -1,13 +1,17 @@
-{ pkgs, ... }:
-pkgs.nuenv.writeShellApplication {
+{
+  imv,
+  nuenv,
+}:
+nuenv.writeShellApplication rec {
   name = "waifu";
-  runtimeInputs = with pkgs; [
-    nushell
+  text = builtins.readFile ./src/waifu.nu;
+
+  runtimeInputs = [
     imv
   ];
-  text = builtins.readFile ./waifu.nu;
+
   meta = {
-    mainProgram = "waifu";
+    mainProgram = name;
     description = "Waifu downloader";
   };
 }
