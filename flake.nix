@@ -30,12 +30,12 @@
           pkgs = pkgsFor system;
         in
         {
-          usbdrivetools = pkgs.callPackage ./usbdrivetools { };
-          bootdev = pkgs.callPackage ./bootdev { };
-          ollama-copilot = pkgs.callPackage ./ollama-copilot { };
-          sddm-themes = pkgs.callPackage ./sddm-themes { };
-          tlm = pkgs.callPackage ./tlm { };
-          waifu = pkgs.callPackage ./waifu { };
+          usbdrivetools = pkgs.callPackage ./packages/usbdrivetools { };
+          bootdev = pkgs.callPackage ./packages/bootdev { };
+          ollama-copilot = pkgs.callPackage ./packages/ollama-copilot { };
+          sddm-themes = pkgs.callPackage ./packages/sddm-themes { };
+          tlm = pkgs.callPackage ./packages/tlm { };
+          waifu = pkgs.callPackage ./packages/waifu { };
         }
       );
       overlays.default = _: prev: {
