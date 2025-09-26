@@ -1,9 +1,8 @@
 #!/bin/sh
 
 image() {
-	geometry="$(($2-2))x$3"
   # why polite https://github.com/gokcehan/lf/issues/1509#issuecomment-1826186390
-	chafa "$1" -f sixel -s "$geometry" --animate false --polite on
+  chafa -f sixel -s "$2x$3" --animate off --polite on -t 1 --bg black "$1"
 }
 
 batorcat() {
