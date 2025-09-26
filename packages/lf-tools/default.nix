@@ -6,10 +6,10 @@
   file,
   ouch,
   chafa,
-  writeShellApplication,
+  nuenv,
 }:
 {
-  preview = writeShellApplication {
+  preview = nuenv.writeShellApplication {
     name = "preview";
     runtimeInputs = [
       # Getting a file info.
