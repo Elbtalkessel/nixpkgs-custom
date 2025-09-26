@@ -1,6 +1,6 @@
 #!/usr/bin/env nu
 
-let DL_ROOT = "~/Pictures/waifu"
+let DL_ROOT = [$env.XDG_PICTURES_DIR, waifu] | path join
 let BASE_URL = "api.waifu.im"
 let TAGS = "/tags"
 let TAGS_CACHE_PATH = "/tmp/waifu.nu.tags.json"
