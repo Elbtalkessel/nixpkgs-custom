@@ -5,7 +5,7 @@
   ffmpeg,
   file,
   ouch,
-  timg,
+  chafa,
   nuenv,
 }:
 {
@@ -25,7 +25,7 @@
       # archive support.
       ouch
       # previewing images in terminal.
-      timg
+      chafa
     ];
     text = builtins.readFile ./src/preview.nu;
     meta = {

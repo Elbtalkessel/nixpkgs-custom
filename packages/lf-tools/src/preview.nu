@@ -83,7 +83,16 @@ def main [f: string, w = 0, h = 0, x = 0, y = 0]: nothing -> string {
       }
     }
     video => ($f | video)
-    image => (timg $f)
+    image => (
+      chafa 
+      -f sixel
+      -s $"($w)x($h)" 
+      --animate off
+      --polite on
+      -t 1 
+      --bg black
+      $"($f)"
+    )
     _ => (bat --color=always --style=plain --pager=never $"($f)")
   }
 }
