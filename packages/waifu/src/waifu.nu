@@ -120,6 +120,7 @@ def "main search" [] {
 def main [
   --nsfw (-n) = false,
   --landscape (-l) = false,
+  --imv (-i): number = 0,
   ...tags: string,
 ]: nothing -> string {
   get-search { 
@@ -127,5 +128,13 @@ def main [
     "gif": false,
     "orientation": (if ($landscape) { "landscape" } else { null }),
     "included_tags": $tags,
-  } | first | download
+  } 
+  | first 
+  | download
+  | tee { 
+    if ($imv != 0) {
+      imv-msg $imv open $in
+      imv-msg $imv next
+    }
+  }
 }
