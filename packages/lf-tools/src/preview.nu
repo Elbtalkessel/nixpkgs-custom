@@ -72,6 +72,7 @@ def "main mime" [f: string]: nothing -> record {
 
 # Usually returns a string describing a file, but for
 # images returns byte stream.
+# TODO: run it in sandbox environment.
 def main [f: string, w, h, x = 0, y = 0]: nothing -> any {
   $f 
   | file-mime-type
