@@ -5,27 +5,27 @@
   ffmpeg,
   file,
   ouch,
-  exiftool,
+  timg,
   nuenv,
 }:
 {
   preview = nuenv.writeShellApplication {
     name = "preview";
     runtimeInputs = [
-      # text files
-      bat
-      # mp3
-      id3v2
-      # flac
-      flac
-      # any supported video files
-      ffmpeg
-      # getting a file mime
+      # Getting a file info.
       file
-      # list an archive
+      # Text file preview.
+      bat
+      # mp3 tags preview.
+      id3v2
+      # flac tags preview.
+      flac
+      # a video file metadata.
+      ffmpeg
+      # archive support.
       ouch
-      # image metadata
-      exiftool
+      # previewing images in terminal.
+      timg
     ];
     text = builtins.readFile ./src/preview.nu;
     meta = {
