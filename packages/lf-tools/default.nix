@@ -27,7 +27,7 @@
       # previewing images in terminal.
       chafa
     ];
-    text = builtins.readFile ./src/preview.sh;
+    text = builtins.readFile ./src/preview.nu;
     meta = {
       mainProgram = "preview";
       description = "File previewer for LF";
