@@ -1,6 +1,7 @@
 {
   imv,
   nuenv,
+  libnotify,
 }:
 nuenv.writeShellApplication rec {
   name = "waifu";
@@ -8,6 +9,7 @@ nuenv.writeShellApplication rec {
 
   runtimeInputs = [
     imv
+    libnotify
   ];
 
   meta = {
