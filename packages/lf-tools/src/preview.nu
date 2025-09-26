@@ -70,7 +70,9 @@ def "main mime" [f: string]: nothing -> record {
   $f | file-mime-type | merge-mime-supertype
 }
 
-def main [f: string, w = 0, h = 0, x = 0, y = 0]: nothing -> string {
+# Usually returns a string describing a file, but for
+# images returns byte stream.
+def main [f: string, w, h, x = 0, y = 0]: nothing -> any {
   $f 
   | file-mime-type
   | merge-mime-supertype
@@ -89,8 +91,6 @@ def main [f: string, w = 0, h = 0, x = 0, y = 0]: nothing -> string {
       -s $"($w)x($h)" 
       --animate off
       --polite on
-      -t 1 
-      --bg black
       $"($f)"
     )
     _ => (bat --color=always --style=plain --pager=never $"($f)")

@@ -6,10 +6,10 @@
   file,
   ouch,
   chafa,
-  nuenv,
+  writeShellApplication,
 }:
 {
-  preview = nuenv.writeShellApplication {
+  preview = writeShellApplication {
     name = "preview";
     runtimeInputs = [
       # Getting a file info.
@@ -27,7 +27,7 @@
       # previewing images in terminal.
       chafa
     ];
-    text = builtins.readFile ./src/preview.nu;
+    text = builtins.readFile ./src/preview.sh;
     meta = {
       mainProgram = "preview";
       description = "File previewer for LF";
