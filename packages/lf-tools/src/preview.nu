@@ -24,10 +24,10 @@ let ARCHIVE_MTYPE = [
 ]
 
 # extracts mime
-def to-mime []: string -> record {
+def to-mime [f: string]: nothing -> record {
   # <file/path>
   #   <mime/type>
-  mimeo -m $in
+  mimeo -m $f
   | lines
   | str trim
   | parse "{major}/{minor}"
@@ -51,15 +51,15 @@ def to-sixel [w: number, h: number]: binary -> binary {
 
 # <- a video file path
 # -> image bytes
-def to-thumbnail []: string -> binary {
-  ffmpegthumbnailer -i $"($in)" -s 0 -q 5 -c jpg -o -
+def to-thumbnail [f: string]: nothing -> binary {
+  ffmpegthumbnailer -i $"($f)" -s 0 -q 5 -c jpg -o -
 }
 
 
 # <- a file path
 # -> table formatted file's metadata
-def get-exif-info [fields: list<string>]: string -> string {
-  exiftool $in
+def get-exif-info [f: string, fields: list<string>]: nothing -> string {
+  exiftool $f
   | lines 
   | where {|line| 
     $fields
@@ -84,13 +84,13 @@ def main [
     x: number = 0, 
     y: number = 0,
   ]: nothing -> any {
-  $f 
+  $f
   | to-mime
   | match $in.major {
     x-archive => (ouch l $"($f)")
-    audio => ($f | get-exif-info $AUDIO_EXIF)
-    video => ($f | to-thumbnail | to-sixel $w $h)
-    image => ($f | open | to-sixel $w $h)
+    audio => (get-exif-info $"($f)" $AUDIO_EXIF)
+    video => (to-thumbnail $"($f)" | to-sixel $w $h)
+    image => (open $"($f)" | to-sixel $w $h)
     _ => (bat --color=always --style=plain --pager=never $"($f)")
   }
 }
