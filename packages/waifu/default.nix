@@ -1,15 +1,12 @@
-{
-  imv,
-  nuenv,
-  libnotify,
-}:
-nuenv.writeShellApplication rec {
+{ pkgs }:
+pkgs.nuenv.writeShellApplication rec {
   name = "waifu";
   text = builtins.readFile ./src/waifu.nu;
 
-  runtimeInputs = [
+  runtimeInputs = with pkgs; [
     imv
     libnotify
+    chafa
   ];
 
   meta = {

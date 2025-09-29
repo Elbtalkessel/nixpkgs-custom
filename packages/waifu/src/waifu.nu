@@ -89,12 +89,22 @@ def get-filepath [item: record]: nothing -> string {
 }
 
 
-def download []: record -> string {
-  let p = (get-filepath $in)
-  http get $in.url
-  | tee { save $p }
-  | tee {|| notify-send "Saved" $p}
-  $p
+def download []: [record -> string, record -> nothing] {
+  let filepath = (get-filepath $in)
+  if ($filepath | path exists) {
+    return $filepath
+  }
+  let url = $in.url
+  try {
+    let bytes = (http get $url)
+    $bytes | save $filepath
+    notify-send "Saved" $filepath
+    return $filepath
+  } catch {|err| 
+    notify-send -u CRITICAL "Error" $err.msg
+    print --stderr $err.msg 
+    return null
+  }
 }
 
 
@@ -109,33 +119,67 @@ def "main retags" []: nothing -> list {
 # More: https://docs.waifu.im/reference/api-reference/search
 def "main search" [] {
   let tags = (tags-select | get name)
-  mut saved = [];
-  get-search { "included_tags": $tags }
-  | first
-  | download
-  | open
-  | imv -
+  let filepath = (
+    get-search { "included_tags": $tags }
+    | first
+    | download
+  )
+  if ($filepath == null) {
+   return
+  }
+  $filepath | open | imv -
+}
+
+def "main inf" [
+  --nsfw (-n) = false,
+  --landscape (-l) = false,
+  --output (-o) = "",
+  ...tags: string,
+] {
+  print (main -n $nsfw -l $landscape -o $output ...$tags)
+  loop {
+    print "(N)ext / (Q)uit"
+    match (input listen --types [key]).code {
+      n|N => (clear; print (main -n $nsfw -l $landscape -o $output ...$tags))
+      q|Q|esc => (clear; break)
+    }
+  }
 }
 
 # Downloads an image and returns its path.
 def main [
   --nsfw (-n) = false,
   --landscape (-l) = false,
-  --imv (-i): number = 0,
+  --output (-o) = "",
   ...tags: string,
-]: nothing -> string {
-  get-search { 
-    "is_nsfw": $nsfw,
-    "gif": false,
-    "orientation": (if ($landscape) { "landscape" } else { null }),
-    "included_tags": $tags,
-  } 
-  | first 
-  | download
-  | tee { 
-    if ($imv != 0) {
-      imv-msg $imv open $in
-      imv-msg $imv next
+]: [nothing -> string, nothing -> nothing] {
+  let filepath = (
+    (get-search { 
+      "is_nsfw": $nsfw,
+      "gif": false,
+      "orientation": (if ($landscape) { "landscape" } else { null }),
+      "included_tags": $tags,
+    }) 
+    | first 
+    | download
+  )
+
+  if ($filepath == null) {
+   return
+  }
+
+  match $output {
+    imv => {
+      let pid = (ps | where name =~ "imv" | get pid)
+      if (($pid | length) == 0) {
+        error make { msg: "imv is not running" }
+      }
+      imv-msg ($pid | first) open $filepath
+      imv-msg ($pid | first) next
+    }
+    sixel => {
+      chafa $filepath
     }
   }
+  $filepath
 }
