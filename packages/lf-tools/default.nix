@@ -2,13 +2,17 @@
   bat,
   id3v2,
   flac,
-  ffmpeg,
   file,
   ouch,
   chafa,
   nuenv,
+  ffmpegthumbnailer,
 }:
 {
+  # TODO: replace `file` with `mimeo`,
+  #   `id3v2` and `flac` with `exiftool`,
+  #   remove `ffmpeg`,
+  #   add pdf file preview.
   preview = nuenv.writeShellApplication {
     name = "preview";
     runtimeInputs = [
@@ -20,12 +24,11 @@
       id3v2
       # flac tags preview.
       flac
-      # a video file metadata.
-      ffmpeg
       # archive support.
       ouch
       # previewing images in terminal.
       chafa
+      ffmpegthumbnailer
     ];
     text = builtins.readFile ./src/preview.nu;
     meta = {

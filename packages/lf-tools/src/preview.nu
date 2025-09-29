@@ -23,26 +23,15 @@ def merge-mime-supertype []: record -> record {
   }
 }
 
-def video []: string -> string {
-  (
-    ffprobe 
-    -v error 
-    -show_entries format=filename,duration,size 
-    -of default=noprint_wrappers=1 
-    # format duration using hh:mm:ss
-    -sexagesimal 
-    $in
-  )
-  | split row -r '\n' 
-  | parse '{key}={value}' 
-  | each {||
-      match $in.key {
-        size => ($in.value | into filesize | format filesize MB)
-        filename => ($in.value | path basename)
-        _ => $in.value
-      }
-  } 
-  | str join "\n"
+# Coverts stdin bytes into sixel formatted string to show images in terminal.
+def to-sixel [w: number, h: number]: binary -> binary {
+  $in 
+  | chafa -f sixel -s $"($w)x($h)" --animate off --polite on
+}
+
+# Converts a path from stdin to a byte string.
+def video-thumbnail-stream []: string -> binary {
+  ffmpegthumbnailer -i $"($in)" -s 0 -q 5 -c jpg -o -
 }
 
 
@@ -73,7 +62,13 @@ def "main mime" [f: string]: nothing -> record {
 # Usually returns a string describing a file, but for
 # images returns byte stream.
 # TODO: run it in sandbox environment.
-def main [f: string, w, h, x = 0, y = 0]: nothing -> any {
+def main [
+    f: string, 
+    w: number, 
+    h: number, 
+    x: number = 0, 
+    y: number = 0,
+  ]: nothing -> any {
   $f 
   | file-mime-type
   | merge-mime-supertype
@@ -85,15 +80,8 @@ def main [f: string, w, h, x = 0, y = 0]: nothing -> any {
         _ => (id3v2 --list $"($f)")
       }
     }
-    video => ($f | video)
-    image => (
-      chafa 
-      -f sixel
-      -s $"($w)x($h)" 
-      --animate off
-      --polite on
-      $"($f)"
-    )
+    video => ($f | video-thumbnail-stream | to-sixel $w $h)
+    image => ($f | open | to-sixel $w $h)
     _ => (bat --color=always --style=plain --pager=never $"($f)")
   }
 }
