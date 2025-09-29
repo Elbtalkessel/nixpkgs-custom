@@ -1,6 +1,5 @@
 #!/usr/bin/env nu
 
-let DL_ROOT = [$env.XDG_PICTURES_DIR, waifu] | path join
 let BASE_URL = "api.waifu.im"
 let TAGS = "/tags"
 let TAGS_CACHE_PATH = "/tmp/waifu.nu.tags.json"
@@ -78,18 +77,20 @@ def tags-select []: nothing -> list {
 
 
 # creates a filename from the search response item.
-def get-filename [item: record]: nothing -> string {
-  (
-    ["waifu", (if $item.is_nsfw { "nsfw" } else { "sfw" })]
-    | append ($item.tags | each {|| $in.name})
-    | append [$"($item.width)x($item.height)", $item.signature]
-    | str join "."
-  ) + $item.extension
+def get-filepath [item: record]: nothing -> string {
+  [$env.XDG_PICTURES_DIR, "waifu", (if $item.is_nsfw { "nsfw" } else { "sfw" })]
+  | append ((
+     $item.tags 
+     | each {|| $in.name}
+     | append $"($item.width)x($item.height).($item.signature)"
+     | str join "."
+    ) + $item.extension)
+  | path join
 }
 
 
 def download []: record -> string {
-  let p = ([$DL_ROOT, (get-filename $in)] | path join)
+  let p = (get-filepath $in)
   http get $in.url
   | tee { save $p }
   | tee {|| notify-send "Saved" $p}

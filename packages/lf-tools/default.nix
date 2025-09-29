@@ -1,9 +1,8 @@
 { pkgs }:
 {
-  # TODO: replace `file` with `mimeo`,
-  #   `id3v2` and `flac` with `exiftool`,
-  #   remove `ffmpeg`,
-  #   add pdf file preview.
+  # TODO:
+  # - PDF
+  # - SVG
   preview = pkgs.nuenv.writeShellApplication {
     name = "preview";
     runtimeInputs = with pkgs; [
@@ -20,4 +19,5 @@
       description = "File previewer for LF";
     };
   };
+  # Archive opener for interactive extraction.
 }
