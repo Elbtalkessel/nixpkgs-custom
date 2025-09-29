@@ -1,32 +1,16 @@
-{
-  bat,
-  id3v2,
-  flac,
-  file,
-  ouch,
-  chafa,
-  nuenv,
-  ffmpegthumbnailer,
-}:
+{ pkgs }:
 {
   # TODO: replace `file` with `mimeo`,
   #   `id3v2` and `flac` with `exiftool`,
   #   remove `ffmpeg`,
   #   add pdf file preview.
-  preview = nuenv.writeShellApplication {
+  preview = pkgs.nuenv.writeShellApplication {
     name = "preview";
-    runtimeInputs = [
-      # Getting a file info.
-      file
-      # Text file preview.
+    runtimeInputs = with pkgs; [
+      mimeo
       bat
-      # mp3 tags preview.
-      id3v2
-      # flac tags preview.
-      flac
-      # archive support.
+      exiftool
       ouch
-      # previewing images in terminal.
       chafa
       ffmpegthumbnailer
     ];
