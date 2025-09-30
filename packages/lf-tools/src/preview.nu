@@ -73,8 +73,13 @@ def get-exif-info [f: string, fields: list<string>]: nothing -> string {
 }
 
 
-def "main mime" [f: string] {
-  to-mime $f
+def "main mime" [f: string, field: string = ""] {
+  let mtype = to-mime $f
+  if ($field != "") {
+    $mtype | get $field
+  } else {
+    $mtype
+  }
 }
 
 
