@@ -7,6 +7,7 @@ pkgs.nuenv.writeShellApplication rec {
     imv
     libnotify
     chafa
+    gum
   ];
 
   meta = {

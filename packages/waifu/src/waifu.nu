@@ -107,6 +107,26 @@ def download []: [record -> string, record -> nothing] {
   }
 }
 
+# filepath + sixel output = bytes out
+# filepath + imv output = nothing out
+def display [output: string]: [string -> binary, string -> nothing] {
+  let filepath = $in
+  match $output {
+    imv => {
+      let pid = (ps | where name =~ "imv" | get pid)
+      if (($pid | length) == 0) {
+        error make { msg: "imv is not running" }
+      }
+      imv-msg ($pid | first) open $filepath
+      imv-msg ($pid | first) next
+      return null
+    }
+    sixel => {
+      chafa $filepath
+    }
+  }
+}
+
 
 # Invalidates and populates the tag cache returning the result.
 # More: https://docs.waifu.im/reference/api-reference/tags
@@ -130,56 +150,57 @@ def "main search" [] {
   $filepath | open | imv -
 }
 
-def "main inf" [
-  --nsfw (-n) = false,
-  --landscape (-l) = false,
-  --output (-o) = "",
-  ...tags: string,
-] {
-  print (main -n $nsfw -l $landscape -o $output ...$tags)
+def "main inf" [] {
+  let query = build-query
+  let output = ([imv, sixel] | select "Output" | first)
+
+  let fp = (get-search $query | first | download)
+  $fp | display $output
+  print $fp
+
   loop {
     print "(N)ext / (Q)uit"
     match (input listen --types [key]).code {
-      n|N => (clear; print (main -n $nsfw -l $landscape -o $output ...$tags))
+      n|N => {
+        clear
+        let fp = (get-search $query | first | download)
+        $fp | display $output
+        print $fp
+      }
       q|Q|esc => (clear; break)
     }
   }
 }
 
-# Downloads an image and returns its path.
-def main [
-  --nsfw (-n) = false,
-  --landscape (-l) = false,
-  --output (-o) = "",
-  ...tags: string,
-]: [nothing -> string, nothing -> nothing] {
-  let filepath = (
-    (get-search { 
-      "is_nsfw": $nsfw,
-      "gif": false,
-      "orientation": (if ($landscape) { "landscape" } else { null }),
-      "included_tags": $tags,
-    }) 
-    | first 
-    | download
-  )
+def --wrapped select [label: string, ...args]: list<any> -> list<any> {
+  gum style --align center --foreground 212 --width 50 $label
+  $in 
+  | each {|o| 
+    if (($o | describe) != 'string') {
+      $o | to json
+    } else {
+      $o
+    }} 
+  | str join "\n"
+  | gum choose ...$args
+  | split row "\n"
+  | each {|o| $o | from json}
+}
 
+def build-query []: nothing -> record {
+  { 
+    "is_nsfw": ([true, false] | select "NSFW?" | first),
+    "gif": ([false, true] | select "GIF?" | first),
+    "orientation": ([null, landscape, portrait] | select "Orientation?" | first),
+    "included_tags": (get-tags | get name | select "Tags" --no-limit),
+  }
+}
+
+# Downloads an image and returns its path.
+def main []: [nothing -> string, nothing -> nothing] {
+  let filepath = (get-search (build-query) | first | download)
   if ($filepath == null) {
    return
   }
-
-  match $output {
-    imv => {
-      let pid = (ps | where name =~ "imv" | get pid)
-      if (($pid | length) == 0) {
-        error make { msg: "imv is not running" }
-      }
-      imv-msg ($pid | first) open $filepath
-      imv-msg ($pid | first) next
-    }
-    sixel => {
-      chafa $filepath
-    }
-  }
-  $filepath
+  $filepath | display ([imv, sixel] | select "Output" | first)
 }
