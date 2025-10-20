@@ -197,7 +197,7 @@ def build-query []: nothing -> record {
 }
 
 # Downloads an image and returns its path.
-def main []: [nothing -> string, nothing -> nothing] {
+def main [] {
   let filepath = (get-search (build-query) | first | download)
   if ($filepath == null) {
    return
