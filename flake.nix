@@ -45,7 +45,7 @@
       overlays.default =
         _: prev:
         let
-          inherit (prev) system;
+          inherit (prev.stdenv.hostPlatform) system;
           pkgs = self.packages.${system};
         in
         builtins.listToAttrs (
