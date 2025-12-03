@@ -143,16 +143,16 @@ def display-options [options: record] {
 (_ O)rientation     (i ($options.orientation))
 (_ T)ags            (i ($options.included_tags | str join ', '))
 
-(_ q)uit
 (_ *)ny key to fetch
+(_ q)uit
 ")
 }
 
 def display-image [options: record] {
   let fp = (get-search $options | first | download)
   display-options $options
+  chafa $fp --fit-width
   print $fp
-  chafa $fp
 }
 
 def main [] {
