@@ -151,27 +151,42 @@ def display-options [options: record] {
 }
 
 def main [] {
+  # GET params
   mut o = {
     "is_nsfw": false,
     "gif": false,
     "orientation": "portrait",
-    "included_tags": ["maid"],
+    "included_tags": ["waifu"],
   }
-  # index of current image
-  # image cache
+
+  # re-render on next iteration
+  mut render = true
+
+  # fetch and save image on next iteration
+  mut fetch = false
+
+  # saved images
   mut c = (
     ls ...(glob $"($env.XDG_PICTURES_DIR)/waifu/**/*.*")
     | where type == file
     | sort-by modified
     | get name
   )
+
+  # index of image to show (usually the last saved image).
   mut p = ($c | length) - 1
-  mut render = true
+  
   if (($c | length) == 0) {
-    $c = ($c | append (get-search $o | first | download))
-    $p = 0
+    $fetch = true
   }
+
   loop {
+    if ($fetch) {
+      $c = ($c | append (get-search $o | first | download))
+      $p = $p + 1
+      $fetch = false
+      $render = true
+    }
     if ($render) {
       clear
       chafa ($c | get $p) --fit-width
@@ -183,19 +198,19 @@ def main [] {
         | update is_nsfw { 
           if ($in) { false } else { true } 
         }
-        $render = true
+        $fetch = true
       }
       o => {
         $o = $o
         | update orientation { 
           if ($in == "landscape") { "portrait" } else { "landscape" } 
         }
-        $render = true
+        $fetch = true
       }
       t => {
         $o = $o
         | update included_tags (tags-select | get name)
-        $render = true
+        $fetch = true
       }
       c => {
         $c | get $p | wl-copy
@@ -219,9 +234,7 @@ def main [] {
           $p = $p + 1
         } else {
           try {
-            $c = ($c | append (get-search $o | first | download))
-            $p = $p + 1
-            $render = true
+            $fetch = true
           } catch {|e|
             notify-send -u critical "💔 Waifu" $"($e.msg)"
           }
