@@ -143,8 +143,9 @@ def display-options [options: record] {
 (_ O)rientation     (i ($options.orientation))
 (_ T)ags            (i ($options.included_tags | str join ', '))
 
-(_ *)ny key to fetch
-(_ q)uit
+(_ b)ack            show previous image
+(_ f)orward         navigate to the next image or fetch new one
+(_ q)uit            exit program
 ")
 }
 
@@ -155,13 +156,22 @@ def main [] {
     "orientation": "portrait",
     "included_tags": ["maid"],
   }
-  mut lp = ""
+  # index of current image
+  # image cache
+  mut c = (
+    ls ...(glob $"($env.XDG_PICTURES_DIR)/waifu/**/*.*")
+    | where type == file
+    | sort-by modified
+    | get name
+  )
+  mut p = ($c | length) - 1
   loop {
     clear
-    if ($lp == "") {
-      $lp = (get-search $o | first | download)
+    if (($c | length) == 0) {
+      $c = ($c | append (get-search $o | first | download))
+      $p = 0
     }
-    chafa $lp --fit-width
+    chafa ($c | get $p) --fit-width
     display-options $o
     match (input listen --types [key]).code {
       n => (
@@ -179,8 +189,18 @@ def main [] {
         | update included_tags (tags-select | get name)
       )
       q|esc => (clear; break)
-      _ => {
-        $lp = ""
+      b => {
+        if ($p != 0) {
+          $p = $p - 1
+        }
+      }
+      f => {
+        if ($p < (($c | length) - 1)) {
+          $p = $p + 1
+        } else {
+          $c = ($c | append (get-search $o | first | download))
+          $p = $p + 1
+        }
       }
     }
   }
