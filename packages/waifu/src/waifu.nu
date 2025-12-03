@@ -48,8 +48,12 @@ def get-tags []: nothing -> list {
 # https://docs.waifu.im/reference/api-reference/search#search-images.
 # Input: query params, Output: a list of image records.
 def get-search [params = {}]: nothing -> list {
-  http get (get-url $SEARCH $params) --headers $HEADERS 
-  | get "images"
+  let r = (http get -e -f (get-url $SEARCH $params) --headers $HEADERS)
+  if ($r.status != 200) {
+    error make {msg: $r.body.detail}
+  } else {
+    $r.body | get images
+  }
 }
 
 # Displays tags with their description.
@@ -136,6 +140,26 @@ def i [c] {
   $"(ansi pi)($c)(ansi reset)"
 }
 
+def e [c] {
+  $"(ansi red)($c)(ansi reset)"
+}
+
+def s [c] {
+  $"(ansi green)($c)(ansi reset)"
+}
+
+# Right pad a given string to fill entire length of terminal.
+def rpad [s] {
+  let l = ((tput cols | into int) - ($s | str length) - 1)
+  let f = 0..$l | each {' '} | str join
+  $"($s)($f)"
+}
+
+# Prints on top of previous value.
+def printo [s] {
+  print -n $"\r(rpad $s)"
+}
+
 def display-options [options: record] {
   print ($"
 💦 (_ N)SFW            (i (if ($options.is_nsfw) { "Yes" } else { "No" }))
@@ -182,16 +206,25 @@ def main [] {
 
   loop {
     if ($fetch) {
-      $c = ($c | append (get-search $o | first | download))
-      $p = $p + 1
+      printo (i 'Loading...')
+      $render = false
+      try {
+        let fp = (get-search $o | first | download)
+        $c = ($c | append $fp)
+        $p = $p + 1
+        $render = true
+      } catch {|e|
+        printo (e $e.msg)
+      }
       $fetch = false
-      $render = true
     }
+
     if ($render) {
       clear
       chafa ($c | get $p) --fit-width
       display-options $o
     }
+
     match (input listen --types [key]).code {
       n => {
         $o = $o
@@ -214,12 +247,12 @@ def main [] {
       }
       c => {
         $c | get $p | wl-copy
-        notify-send -u low -t 900 "💕 Waifu" "Path in clipboard"
+        printo (s $"💕 ctrl-c! ($c | get $p)")
         $render = false
       }
       w => {
         setbg ($c | get $p) | ignore
-        notify-send -u low -t 900 "💕 Waifu" "Wallpaper set"
+        printo (s "💕 wallpaper set")
         $render = false
       }
       q|esc => (clear; break)
@@ -233,11 +266,7 @@ def main [] {
         if ($p < (($c | length) - 1)) {
           $p = $p + 1
         } else {
-          try {
-            $fetch = true
-          } catch {|e|
-            notify-send -u critical "💔 Waifu" $"($e.msg)"
-          }
+          $fetch = true
         }
       }
     }
