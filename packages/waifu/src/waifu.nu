@@ -218,10 +218,14 @@ def main [] {
         if ($p < (($c | length) - 1)) {
           $p = $p + 1
         } else {
-          $c = ($c | append (get-search $o | first | download))
-          $p = $p + 1
+          try {
+            $c = ($c | append (get-search $o | first | download))
+            $p = $p + 1
+            $render = true
+          } catch {|e|
+            notify-send -u critical "💔 Waifu" $"($e.msg)"
+          }
         }
-        $render = true
       }
     }
   }
