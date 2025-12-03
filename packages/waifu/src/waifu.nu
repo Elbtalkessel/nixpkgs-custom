@@ -129,98 +129,60 @@ def "main retags" []: nothing -> list {
   get-tags
 }
 
-def --wrapped select [label: string = "", ...args]: list<any> -> list<any> {
-  gum style --align center --foreground 212 --width 50 $label
-  $in 
-  | each {|o| 
-    if (($o | describe) != 'string') {
-      $o | to json
-    } else {
-      $o
-    }} 
-  | str join "\n"
-  | gum choose ...$args
-  | split row "\n"
-  | each {|o| $o | from json}
+def _ [c] {
+  $"(ansi pu)($c)(ansi reset)"
+}
+
+def i [c] {
+  $"(ansi pi)($c)(ansi reset)"
 }
 
 def display-options [options: record] {
-  $options 
-  | items {|k v| $"- ($k): $($v | into string)"} 
-  | str join "\n" 
-  | gum format
+  print ($"
+(_ N)SFW            (i (if ($options.is_nsfw) { "Yes" } else { "No" }))
+(_ O)rientation     (i ($options.orientation))
+(_ T)ags            (i ($options.included_tags | str join ', '))
+
+(_ q)uit
+(_ *)ny key to fetch
+")
 }
 
 def display-image [options: record] {
-  clear
   let fp = (get-search $options | first | download)
   display-options $options
   print $fp
   chafa $fp
 }
 
-
-def change-option [options: record] {
-  let opt = ($options | items {|k v| $k} | append "apply" | select | first)
-  let ans = match $opt {
-    "is_nsfw" => {
-      { key: $opt, value: ([true, false] | select | first) }
-    }
-    "gif" => {
-      { key: $opt, value: ([false, true] | select | first) }
-    }
-    "orientation" => {
-      { key: $opt, value: ([null, landscape, portrait] | select | first) }
-    }
-    "included_tags" => {
-      { key: $opt, value: (get-tags | get name | select "Tags" --no-limit) }
-    }
-    "apply" => {
-      { key: apply, value: true }
-    }
-  }
-  $ans
-}
-
-def change-options [options: record] {
-  mut opts = {...$options}
-  loop { 
-    clear; 
-    display-options $opts; 
-    let new = (change-option $opts)
-    if ($new.key == "apply") {
-      break
-    }
-    $opts = $opts | update $new.key $new.value
-  }
-  $opts
-}
-
-# Downloads an image and returns its path.
 def main [] {
-  mut options = {
-    "is_nsfw": true,
+  mut o = {
+    "is_nsfw": false,
     "gif": false,
     "orientation": "portrait",
-    "included_tags": [],
+    "included_tags": ["maid"],
   }
-
-  display-options $options
-  let next = (["Show" "Options"] | select "Terminal Waifu" | first)
-
-  if ($next == "Show") {
-    display-image $options
-  }
-  if ($next == "Options") {
-    $options = (change-options $options)
-  }
-
   loop {
-    print "(N)ext / (O)ptions / (Q)uit"
+    clear
+    display-image $o
+    display-options $o
     match (input listen --types [key]).code {
-      n|N => (display-image $options)
-      q|Q|esc => (clear; break)
-      o|O => ($options = (change-options $options))
+      n => (
+        $o = $o
+        | update is_nsfw { 
+          if ($in) { false } else { true } 
+        })
+      o => (
+        $o = $o
+        | update orientation { 
+          if ($in == "landscape") { "portrait" } else { "landscape" } 
+        })
+      t => (
+        $o = $o
+        | update included_tags (tags-select | get name)
+      )
+      q|esc => (clear; break)
+      _ => {}
     }
   }
 }
