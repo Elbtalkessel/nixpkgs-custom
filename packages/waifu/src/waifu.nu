@@ -148,13 +148,6 @@ def display-options [options: record] {
 ")
 }
 
-def display-image [options: record] {
-  let fp = (get-search $options | first | download)
-  display-options $options
-  chafa $fp --fit-width
-  print $fp
-}
-
 def main [] {
   mut o = {
     "is_nsfw": false,
@@ -162,9 +155,13 @@ def main [] {
     "orientation": "portrait",
     "included_tags": ["maid"],
   }
+  mut lp = ""
   loop {
     clear
-    display-image $o
+    if ($lp == "") {
+      $lp = (get-search $o | first | download)
+    }
+    chafa $lp --fit-width
     display-options $o
     match (input listen --types [key]).code {
       n => (
@@ -182,7 +179,9 @@ def main [] {
         | update included_tags (tags-select | get name)
       )
       q|esc => (clear; break)
-      _ => {}
+      _ => {
+        $lp = ""
+      }
     }
   }
 }
