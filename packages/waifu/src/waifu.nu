@@ -10,7 +10,8 @@ let HEADERS = {
   "Accept-Version": "v6"
 }
 
-
+# Builds url including GET params.
+# Params with value null are discarded.
 def get-url [path: string, params = {}]: nothing -> string {
   {
     "scheme": "https",
@@ -25,6 +26,9 @@ def get-url [path: string, params = {}]: nothing -> string {
   } | url join
 }
 
+# Gets list of tags that can be used for fetching
+# images.
+# Caches results because they don't change often.
 def get-tags []: nothing -> list {
   if ($TAGS_CACHE_PATH | path exists) {
     let cached = ($TAGS_CACHE_PATH | open)
@@ -40,7 +44,6 @@ def get-tags []: nothing -> list {
   | tee { to json | save $TAGS_CACHE_PATH }
 }
 
-
 # Search for an image(s)
 # https://docs.waifu.im/reference/api-reference/search#search-images.
 # Input: query params, Output: a list of image records.
@@ -49,14 +52,15 @@ def get-search [params = {}]: nothing -> list {
   | get "images"
 }
 
-
+# Displays tags with their description.
 def tag-display []: list -> list {
   $in | enumerate | flatten | each {|| 
     $"#($in.index): ($in.description) [($in.name)(if ($in.is_nsfw) { ', nsfw' } else { ', sfw' })]"
   }
 }
 
-
+# Select tag UI.
+# Returns IDs of selected tags.
 def tags-select []: nothing -> list {
   let tags = (get-tags)
   $tags 
@@ -75,19 +79,30 @@ def tags-select []: nothing -> list {
     }
 }
 
-
-# creates a filename from the search response item.
+# Builds absolute filepath to save image to or display from.
+# Checks if an image with matching signature present, and
+# returns its file path if does.
 def get-filepath [item: record]: nothing -> string {
-  [$env.XDG_PICTURES_DIR, "waifu", (if $item.is_nsfw { "nsfw" } else { "sfw" })]
-  | append ((
-     $item.tags 
-     | each {|| $in.name}
-     | append $"($item.width)x($item.height).($item.signature)"
-     | str join "."
-    ) + $item.extension)
-  | path join
+  # check if image present by searching by signature
+  let base = [
+    $env.XDG_PICTURES_DIR, 
+    "waifu", 
+    (if $item.is_nsfw { "nsfw" } else { "sfw" })
+  ]
+  let fpath = (ls ($base | path join) | where name =~ $item.signature)
+  if (($fpath | length) > 0) {
+    $fpath | get name | first
+  } else {
+    $base
+    | append ((
+       $item.tags 
+       | each {|| $in.name}
+       | append $"($item.width)x($item.height).($item.signature)"
+       | str join "."
+      ) + $item.extension)
+    | path join
+  }
 }
-
 
 def download []: [record -> string, record -> nothing] {
   let filepath = (get-filepath $in)
@@ -107,27 +122,6 @@ def download []: [record -> string, record -> nothing] {
   }
 }
 
-# filepath + sixel output = bytes out
-# filepath + imv output = nothing out
-def display [output: string]: [string -> binary, string -> nothing] {
-  let filepath = $in
-  match $output {
-    imv => {
-      let pid = (ps | where name =~ "imv" | get pid)
-      if (($pid | length) == 0) {
-        error make { msg: "imv is not running" }
-      }
-      imv-msg ($pid | first) open $filepath
-      imv-msg ($pid | first) next
-      return null
-    }
-    sixel => {
-      chafa $filepath
-    }
-  }
-}
-
-
 # Invalidates and populates the tag cache returning the result.
 # More: https://docs.waifu.im/reference/api-reference/tags
 def "main retags" []: nothing -> list {
@@ -135,44 +129,7 @@ def "main retags" []: nothing -> list {
   get-tags
 }
 
-# Image search with interactive tag select.
-# More: https://docs.waifu.im/reference/api-reference/search
-def "main search" [] {
-  let tags = (tags-select | get name)
-  let filepath = (
-    get-search { "included_tags": $tags }
-    | first
-    | download
-  )
-  if ($filepath == null) {
-   return
-  }
-  $filepath | open | imv -
-}
-
-def "main inf" [] {
-  let query = build-query
-  let output = ([imv, sixel] | select "Output" | first)
-
-  let fp = (get-search $query | first | download)
-  $fp | display $output
-  print $fp
-
-  loop {
-    print "(N)ext / (Q)uit"
-    match (input listen --types [key]).code {
-      n|N => {
-        clear
-        let fp = (get-search $query | first | download)
-        $fp | display $output
-        print $fp
-      }
-      q|Q|esc => (clear; break)
-    }
-  }
-}
-
-def --wrapped select [label: string, ...args]: list<any> -> list<any> {
+def --wrapped select [label: string = "", ...args]: list<any> -> list<any> {
   gum style --align center --foreground 212 --width 50 $label
   $in 
   | each {|o| 
@@ -187,20 +144,83 @@ def --wrapped select [label: string, ...args]: list<any> -> list<any> {
   | each {|o| $o | from json}
 }
 
-def build-query []: nothing -> record {
-  { 
-    "is_nsfw": ([true, false] | select "NSFW?" | first),
-    "gif": ([false, true] | select "GIF?" | first),
-    "orientation": ([null, landscape, portrait] | select "Orientation?" | first),
-    "included_tags": (get-tags | get name | select "Tags" --no-limit),
+def display-options [options: record] {
+  $options 
+  | items {|k v| $"- ($k): $($v | into string)"} 
+  | str join "\n" 
+  | gum format
+}
+
+def display-image [options: record] {
+  clear
+  let fp = (get-search $options | first | download)
+  display-options $options
+  print $fp
+  chafa $fp
+}
+
+
+def change-option [options: record] {
+  let opt = ($options | items {|k v| $k} | append "apply" | select | first)
+  let ans = match $opt {
+    "is_nsfw" => {
+      { key: $opt, value: ([true, false] | select | first) }
+    }
+    "gif" => {
+      { key: $opt, value: ([false, true] | select | first) }
+    }
+    "orientation" => {
+      { key: $opt, value: ([null, landscape, portrait] | select | first) }
+    }
+    "included_tags" => {
+      { key: $opt, value: (get-tags | get name | select "Tags" --no-limit) }
+    }
+    "apply" => {
+      { key: apply, value: true }
+    }
   }
+  $ans
+}
+
+def change-options [options: record] {
+  mut opts = {...$options}
+  loop { 
+    clear; 
+    display-options $opts; 
+    let new = (change-option $opts)
+    if ($new.key == "apply") {
+      break
+    }
+    $opts = $opts | update $new.key $new.value
+  }
+  $opts
 }
 
 # Downloads an image and returns its path.
 def main [] {
-  let filepath = (get-search (build-query) | first | download)
-  if ($filepath == null) {
-   return
+  mut options = {
+    "is_nsfw": true,
+    "gif": false,
+    "orientation": "portrait",
+    "included_tags": [],
   }
-  $filepath | display ([imv, sixel] | select "Output" | first)
+
+  display-options $options
+  let next = (["Show" "Options"] | select "Terminal Waifu" | first)
+
+  if ($next == "Show") {
+    display-image $options
+  }
+  if ($next == "Options") {
+    $options = (change-options $options)
+  }
+
+  loop {
+    print "(N)ext / (O)ptions / (Q)uit"
+    match (input listen --types [key]).code {
+      n|N => (display-image $options)
+      q|Q|esc => (clear; break)
+      o|O => ($options = (change-options $options))
+    }
+  }
 }
