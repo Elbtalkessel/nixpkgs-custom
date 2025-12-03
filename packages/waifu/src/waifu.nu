@@ -113,10 +113,9 @@ def download []: [record -> string, record -> nothing] {
   try {
     let bytes = (http get $url)
     $bytes | save $filepath
-    notify-send "Saved" $filepath
     return $filepath
   } catch {|err| 
-    notify-send -u CRITICAL "Error" $err.msg
+    notify-send -u CRITICAL "Waifu" $"Error ($err.msg)"
     print --stderr $err.msg 
     return null
   }
@@ -139,13 +138,15 @@ def i [c] {
 
 def display-options [options: record] {
   print ($"
-(_ N)SFW            (i (if ($options.is_nsfw) { "Yes" } else { "No" }))
-(_ O)rientation     (i ($options.orientation))
-(_ T)ags            (i ($options.included_tags | str join ', '))
+💦 (_ N)SFW            (i (if ($options.is_nsfw) { "Yes" } else { "No" }))
+🙃 (_ O)rientation     (i ($options.orientation))
+🏷️ (_ T)ags            (i ($options.included_tags | str join ', '))
 
-(_ b)ack            show previous image
-(_ f)orward         navigate to the next image or fetch new one
-(_ q)uit            exit program
+👈 (_ b)ack            show previous image
+👉 (_ f)orward         navigate to the next image or fetch new one
+🫵 (_ c)opy            copy image path to the clipboard
+🫰 (_ w)allpaper       set as wallpaper
+🤌 (_ q)uit            exit program
 ")
 }
 
@@ -165,34 +166,53 @@ def main [] {
     | get name
   )
   mut p = ($c | length) - 1
+  mut render = true
+  if (($c | length) == 0) {
+    $c = ($c | append (get-search $o | first | download))
+    $p = 0
+  }
   loop {
-    clear
-    if (($c | length) == 0) {
-      $c = ($c | append (get-search $o | first | download))
-      $p = 0
+    if ($render) {
+      clear
+      chafa ($c | get $p) --fit-width
+      display-options $o
     }
-    chafa ($c | get $p) --fit-width
-    display-options $o
     match (input listen --types [key]).code {
-      n => (
+      n => {
         $o = $o
         | update is_nsfw { 
           if ($in) { false } else { true } 
-        })
-      o => (
+        }
+        $render = true
+      }
+      o => {
         $o = $o
         | update orientation { 
           if ($in == "landscape") { "portrait" } else { "landscape" } 
-        })
-      t => (
+        }
+        $render = true
+      }
+      t => {
         $o = $o
         | update included_tags (tags-select | get name)
-      )
+        $render = true
+      }
+      c => {
+        $c | get $p | wl-copy
+        notify-send -u low -t 900 "💕 Waifu" "Path in clipboard"
+        $render = false
+      }
+      w => {
+        setbg ($c | get $p) | ignore
+        notify-send -u low -t 900 "💕 Waifu" "Wallpaper set"
+        $render = false
+      }
       q|esc => (clear; break)
       b => {
         if ($p != 0) {
           $p = $p - 1
         }
+        $render = true
       }
       f => {
         if ($p < (($c | length) - 1)) {
@@ -201,6 +221,7 @@ def main [] {
           $c = ($c | append (get-search $o | first | download))
           $p = $p + 1
         }
+        $render = true
       }
     }
   }
