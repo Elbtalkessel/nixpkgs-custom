@@ -171,6 +171,7 @@ def display-options [options: record] {
 🫵 (_ c)opy            copy image path to the clipboard
 🫰 (_ w)allpaper       set as wallpaper
 🤌 (_ q)uit            exit program
+📄 (_ g)o              go to a page
 ")
 }
 
@@ -221,8 +222,9 @@ def main [] {
 
     if ($render) {
       clear
-      chafa ($c | get $p) --fit-width
+      chafa ($c | get $p) --align mid,mid
       display-options $o
+      printo (i $"  #($p + 1)")
     }
 
     match (input listen --types [key]).code {
@@ -254,6 +256,22 @@ def main [] {
         setbg ($c | get $p) | ignore
         printo (s "💕 wallpaper set")
         $render = false
+      }
+      g => {
+        let total = $c | length
+        printo $"[($p + 1)/($total)]: "
+        $render = false
+        try {
+          let page = (input | into int) - 1
+          if ($page > $total) or ($page <= 0) {
+            printo (e "Not a valid page")
+          } else {
+            $p = $page
+            $render = true
+          }
+        } catch {|e|
+          printo (e $"($e.msg)")
+        }
       }
       q|esc => (clear; break)
       b => {
