@@ -4,7 +4,7 @@
   lib,
 }:
 let
-  version = "1.22.0";
+  version = "1.22.1";
 in
 buildGoModule {
   pname = "bootdev";
@@ -14,7 +14,7 @@ buildGoModule {
     owner = "bootdotdev";
     repo = "bootdev";
     rev = "v${version}";
-    sha256 = "sha256-Fk82JKD8zHRPBoliwnvQKqZNii7TiX13cKENXw5011E=";
+    sha256 = "sha256-eOyJx99TwjG7UWTvzYtelLsN1BwhORZD9zkyA13VYSY=";
   };
 
   vendorHash = "sha256-jhRoPXgfntDauInD+F7koCaJlX4XDj+jQSe/uEEYIMM=";
