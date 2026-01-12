@@ -42,6 +42,10 @@ def download-image-url [url: string query: record]: nothing -> string {
   let filename = ($url | path basename)
   let filepath = ([$dirname, $filename] | path join)
 
+  if ($filepath | path exists) {
+    return $filepath
+  }
+
   try {
     let bytes = (http get $url)
     $bytes | save $filepath
