@@ -150,7 +150,7 @@ def main [provider: string = "waifu"] {
 
   # Get query parameters.
   mut query = {
-    "group": "sfw",
+    "group": ($settings.groups | columns | first),
     "tags": [],
     "orientation": "portrait",
   }
