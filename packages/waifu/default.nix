@@ -4,10 +4,8 @@ pkgs.nuenv.writeShellApplication rec {
   text = builtins.readFile ./src/waifu.nu;
 
   runtimeInputs = with pkgs; [
-    imv
-    libnotify
     chafa
-    gum
+    jq
   ];
 
   meta = {

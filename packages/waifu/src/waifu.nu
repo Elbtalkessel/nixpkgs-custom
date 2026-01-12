@@ -46,56 +46,28 @@ def download-image-url [url: string query: record]: nothing -> string {
     return $filepath
   }
 
-  try {
-    let bytes = (http get $url)
-    $bytes | save $filepath
-    return $filepath
-  } catch {|err| 
-    notify-send -u CRITICAL "Waifu" $"Error ($err.msg)"
-    print --stderr $err.msg 
-    return null
-  }
+  let bytes = (http get $url)
+  $bytes | save $filepath
+  return $filepath
 }
 
 # Searches for an image for download.
-# Stdin:
-#   { group: string, tags: list<string>, [k in string]: string }
-# Stdout:
-#   { url: string }
-# settings:
-#   { url: string; list: string: name: string; headers: list<string>; groups: record }
 def query-image-url [settings: record, query: record]: nothing -> string {
-  mut url = ""
-  let url = do {|settings, query| 
-    if ($settings.name == "waifu.im") {
-      get-url $settings.base $settings.list {
-        is_nsfw: ($query.group == "nsfw"),
-        gif: false,
-        included_tags: $query.tags,
-      }
-    } else {
-      get-url $settings.base ([$settings.list, $query.group] | str join "/")
-    }
-  } $settings $query
-
-  let r = (http get -e -f $url --headers ($HEADERS | merge ($settings.headers | into record)))
-
-  if ($settings.name == "waifu.im") {
-    if ($r.status != 200) {
-      error make {msg: $r.body.detail}
-    } else {
-      $r.body.images | first | get url
-    }
+  let path = ($query | format pattern $settings.list)
+  let search = $settings.query 
+  | transpose k v 
+  | reduce -f {} {|it, acc| 
+    $acc 
+    | insert $it.v ($query | get $it.k)
+  }
+  let headers = ($HEADERS | merge ($settings.headers | into record))
+  
+  let url = (get-url $settings.base $path $search)
+  let r = (http get -e -f $url --headers $headers --raw)
+  if ($r.status != 200) {
+    error make {msg: ($r.body | jq -r $settings.error_selector)}
   } else {
-    if ($r.status != 200) {
-      error make {msg: $r.body.content}
-    } else {
-      try {
-        $r.body.content.url
-      } catch {
-        error make {msg: $url}
-      }
-    }
+    $r.body | jq -r $settings.image_selector
   }
 }
 
@@ -128,7 +100,7 @@ def printo [s] {
 }
 
 def get-settings [provider: string]: nothing -> record {
-  let s = open $"($env.XDG_CONFIG_HOME)/wpdl/wpdlrc.yaml"
+  let s = (open $"($env.XDG_CONFIG_HOME)/wpdl/wpdlrc.yaml")
   try {
     $s | get providers | get $provider
   } catch {
@@ -175,6 +147,8 @@ def main [provider: string = "waifu"] {
   # Get query parameters.
   mut query = (try-last-used $provider {
     "group": ($settings.groups | columns | first),
+    "tag": "",
+    # Just [<tag>], workaround.
     "tags": [],
     "orientation": "portrait",
     "provider": $provider,
@@ -217,11 +191,7 @@ def main [provider: string = "waifu"] {
 
     if ($render) {
       clear
-      try {
-        chafa ($cache | get $p) --align mid,mid --animate off
-      } catch {|err|
-        printo (e $err.msg)
-      }
+      chafa ($cache | get $p) --align mid,mid --animate off
       display-options $query
       printo (i $"  #($p + 1)")
     }
@@ -241,8 +211,8 @@ def main [provider: string = "waifu"] {
         $fetch = true
       }
       t => {
-        $query = $query
-        | update tags ($settings.groups | get $query.group | select)
+        let tag = ($settings.groups | get $query.group | select)
+        $query = $query | merge {tags: [$tag], tag: $tag}
         $fetch = true
       }
       c => {
