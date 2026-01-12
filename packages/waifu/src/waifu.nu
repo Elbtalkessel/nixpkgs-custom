@@ -160,6 +160,15 @@ def printo [s] {
   print -n $"\r(rpad $s)"
 }
 
+def get-settings [provider: string]: nothing -> record {
+  let s = open $"($env.XDG_CONFIG_HOME)/wpdl/wpdlrc.yaml"
+  try {
+    $s | get providers | get $provider
+  } catch {
+    error make { msg: $"Unknow provider ($provider), options are ($s | columns | str join ', ')." }
+  }
+}
+
 def display-options [options: record] {
   print ($"
 💦 (_ N)SFW            (i (if ($options.is_nsfw) { "Yes" } else { "No" }))
@@ -176,7 +185,7 @@ def display-options [options: record] {
 }
 
 # Picture download and view.
-def main [] {
+def main [provider: string = "waifu"] {
   # Get query parameters.
   mut query = {
     "is_nsfw": false,
@@ -191,9 +200,12 @@ def main [] {
   # fetch and save image on next iteration
   mut fetch = false
 
+  # global provider settings
+  let settings = get-settings $provider
+
   # saved images
   mut cache = (
-    ls ...(glob $"($env.XDG_PICTURES_DIR)/waifu/**/*.*")
+    ls ...(glob $"($env.XDG_PICTURES_DIR)/($provider)/**/*.*")
     | where type == file
     | sort-by modified
     | get name
