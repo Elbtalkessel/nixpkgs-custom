@@ -26,61 +26,27 @@ def get-url [path: string, params = {}]: nothing -> string {
   } | url join
 }
 
-# Gets list of tags that can be used for fetching
-# images.
-# Caches results because they don't change often.
-def get-tags []: nothing -> list {
-  if ($TAGS_CACHE_PATH | path exists) {
-    let cached = ($TAGS_CACHE_PATH | open)
-    if ($cached != null) {
-      return $cached
-    }
-    rm $TAGS_CACHE_PATH
-  }
-
-  http get (get-url $TAGS {"full": true}) --headers $HEADERS
-  | values 
-  | flatten
-  | tee { to json | save $TAGS_CACHE_PATH }
+def select []: list -> list {
+  $in
+  | str join "\n"
+  | fzf -m --header "Select an option" --footer "Tab to toggle, enter to select"
+  | lines
 }
 
 # Search for an image(s)
 # https://docs.waifu.im/reference/api-reference/search#search-images.
 # Input: query params, Output: a list of image records.
 def get-search [params = {}]: nothing -> list {
-  let r = (http get -e -f (get-url $SEARCH $params) --headers $HEADERS)
+  let r = (http get -e -f (get-url $SEARCH {
+    is_nsfw: ($params.group == "nsfw"),
+    gif: false,
+    included_tags: $params.tags,
+  }) --headers $HEADERS)
   if ($r.status != 200) {
     error make {msg: $r.body.detail}
   } else {
     $r.body | get images
   }
-}
-
-# Displays tags with their description.
-def tag-display []: list -> list {
-  $in | enumerate | flatten | each {|| 
-    $"#($in.index): ($in.description) [($in.name)(if ($in.is_nsfw) { ', nsfw' } else { ', sfw' })]"
-  }
-}
-
-# Select tag UI.
-# Returns IDs of selected tags.
-def tags-select []: nothing -> list {
-  let tags = (get-tags)
-  $tags 
-    | tag-display
-    | str join "\n"
-    | fzf -m --header "Select a tag(s)" --footer "Tab to toggle, enter to select"
-    | lines
-    | each {|s| 
-      $tags 
-      | get (
-        $s | parse "#{index}: {description} [{tags}]"
-        | get index 
-        | first
-        | into int
-      )
-    }
 }
 
 # Builds absolute filepath to save image to or display from.
@@ -125,13 +91,6 @@ def download []: [record -> string, record -> nothing] {
   }
 }
 
-# Invalidates and populates the tag cache returning the result.
-# More: https://docs.waifu.im/reference/api-reference/tags
-def "main retags" []: nothing -> list {
-  try { rm $TAGS_CACHE_PATH }
-  get-tags
-}
-
 def _ [c] {
   $"(ansi pu)($c)(ansi reset)"
 }
@@ -169,29 +128,31 @@ def get-settings [provider: string]: nothing -> record {
   }
 }
 
-def display-options [options: record] {
+def display-options [query: record] {
   print ($"
-💦 (_ N)SFW            (i (if ($options.is_nsfw) { "Yes" } else { "No" }))
-🙃 (_ O)rientation     (i ($options.orientation))
-🏷️ (_ T)ags            (i ($options.included_tags | str join ', '))
+💦 (_ G)roup           (i ($query.group))
+🙃 (_ O)rientation     (i ($query.orientation))
+🏷️ (_ T)ags            (i ($query.tags | str join ', '))
 
 👈 (_ b)ack            show previous image
 👉 (_ f)orward         navigate to the next image or fetch new one
 🫵 (_ c)opy            copy image path to the clipboard
 🫰 (_ w)allpaper       set as wallpaper
 🤌 (_ q)uit            exit program
-📄 (_ g)o              go to a page
+📄 (_ j)ump            jump to a page
 ")
 }
 
 # Picture download and view.
 def main [provider: string = "waifu"] {
+  # global provider settings
+  let settings = get-settings $provider
+
   # Get query parameters.
   mut query = {
-    "is_nsfw": false,
-    "gif": false,
+    "group": "sfw",
+    "tags": [],
     "orientation": "portrait",
-    "included_tags": ["waifu"],
   }
 
   # re-render on next iteration
@@ -199,9 +160,6 @@ def main [provider: string = "waifu"] {
 
   # fetch and save image on next iteration
   mut fetch = false
-
-  # global provider settings
-  let settings = get-settings $provider
 
   # saved images
   mut cache = (
@@ -241,11 +199,10 @@ def main [provider: string = "waifu"] {
     }
 
     match (input listen --types [key]).code {
-      n => {
+      g => {
         $query = $query
-        | update is_nsfw { 
-          if ($in) { false } else { true } 
-        }
+        | update group ($settings.groups | columns | select | first)
+        | update tags []
         $fetch = true
       }
       o => {
@@ -257,7 +214,7 @@ def main [provider: string = "waifu"] {
       }
       t => {
         $query = $query
-        | update included_tags (tags-select | get name)
+        | update tags ($settings.groups | get $query.group | select)
         $fetch = true
       }
       c => {
@@ -270,7 +227,7 @@ def main [provider: string = "waifu"] {
         printo (s "💕 wallpaper set")
         $render = false
       }
-      g => {
+      j => {
         let total = $cache | length
         printo $"[($p + 1)/($total)]: "
         $render = false
