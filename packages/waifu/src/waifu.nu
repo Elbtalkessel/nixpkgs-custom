@@ -132,6 +132,22 @@ def get-settings [provider: string]: nothing -> record {
   }
 }
 
+def try-last-used [provider: string, query: record]: nothing -> record {
+  let p = ([$env.XDG_STATE_HOME, "wpdl", $"($provider).json"] | path join)
+  if ($p | path exists) {
+    open $p
+  } else {
+    $query
+  }
+}
+
+def save-state [provider: string, query: record] {
+  let statedir = ([$env.XDG_STATE_HOME, "wpdl"] | path join)
+  mkdir $statedir
+  let p = ([$statedir, $"($provider).json"] | path join)
+  $query | save -f $p
+}
+
 def display-options [query: record] {
   print ($"
 💦 (_ G)roup           (i ($query.group))
@@ -153,12 +169,12 @@ def main [provider: string = "waifu"] {
   let settings = get-settings $provider
 
   # Get query parameters.
-  mut query = {
+  mut query = (try-last-used $provider {
     "group": ($settings.groups | columns | first),
     "tags": [],
     "orientation": "portrait",
     "provider": $provider,
-  }
+  })
 
   # re-render on next iteration
   mut render = true
@@ -166,7 +182,7 @@ def main [provider: string = "waifu"] {
   # fetch and save image on next iteration
   mut fetch = false
 
-  let basedir = $"($env.XDG_PICTURES_DIR)/($provider)"
+  let basedir = $"($env.XDG_PICTURES_DIR)/($query.provider)"
 
   # saved images
   mut cache = (
@@ -197,7 +213,11 @@ def main [provider: string = "waifu"] {
 
     if ($render) {
       clear
-      chafa ($cache | get $p) --align mid,mid --animate off
+      try {
+        chafa ($cache | get $p) --align mid,mid --animate off
+      } catch {|err|
+        printo (e $err.msg)
+      }
       display-options $query
       printo (i $"  #($p + 1)")
     }
@@ -247,7 +267,7 @@ def main [provider: string = "waifu"] {
           printo (e $"($e.msg)")
         }
       }
-      q|esc => (clear; break)
+      q|esc => (save-state $provider $query; clear; break)
       b => {
         if ($p != 0) {
           $p = $p - 1
