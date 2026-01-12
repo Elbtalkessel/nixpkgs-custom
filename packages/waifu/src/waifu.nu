@@ -175,9 +175,10 @@ def display-options [options: record] {
 ")
 }
 
+# Picture download and view.
 def main [] {
-  # GET params
-  mut o = {
+  # Get query parameters.
+  mut query = {
     "is_nsfw": false,
     "gif": false,
     "orientation": "portrait",
@@ -191,7 +192,7 @@ def main [] {
   mut fetch = false
 
   # saved images
-  mut c = (
+  mut cache = (
     ls ...(glob $"($env.XDG_PICTURES_DIR)/waifu/**/*.*")
     | where type == file
     | sort-by modified
@@ -199,9 +200,9 @@ def main [] {
   )
 
   # index of image to show (usually the last saved image).
-  mut p = ($c | length) - 1
+  mut p = ($cache | length) - 1
   
-  if (($c | length) == 0) {
+  if (($cache | length) == 0) {
     $fetch = true
   }
 
@@ -210,8 +211,8 @@ def main [] {
       printo (i 'Loading...')
       $render = false
       try {
-        let fp = (get-search $o | first | download)
-        $c = ($c | append $fp)
+        let fp = (get-search $query | first | download)
+        $cache = ($cache | append $fp)
         $p = $p + 1
         $render = true
       } catch {|e|
@@ -222,43 +223,43 @@ def main [] {
 
     if ($render) {
       clear
-      chafa ($c | get $p) --align mid,mid
-      display-options $o
+      chafa ($cache | get $p) --align mid,mid
+      display-options $query
       printo (i $"  #($p + 1)")
     }
 
     match (input listen --types [key]).code {
       n => {
-        $o = $o
+        $query = $query
         | update is_nsfw { 
           if ($in) { false } else { true } 
         }
         $fetch = true
       }
       o => {
-        $o = $o
+        $query = $query
         | update orientation { 
           if ($in == "landscape") { "portrait" } else { "landscape" } 
         }
         $fetch = true
       }
       t => {
-        $o = $o
+        $query = $query
         | update included_tags (tags-select | get name)
         $fetch = true
       }
       c => {
-        $c | get $p | wl-copy
-        printo (s $"💕 ctrl-c! ($c | get $p)")
+        $cache | get $p | wl-copy
+        printo (s $"💕 ctrl-c! ($cache | get $p)")
         $render = false
       }
       w => {
-        setbg ($c | get $p) | ignore
+        setbg ($cache | get $p) | ignore
         printo (s "💕 wallpaper set")
         $render = false
       }
       g => {
-        let total = $c | length
+        let total = $cache | length
         printo $"[($p + 1)/($total)]: "
         $render = false
         try {
@@ -281,7 +282,7 @@ def main [] {
         $render = true
       }
       f => {
-        if ($p < (($c | length) - 1)) {
+        if ($p < (($cache | length) - 1)) {
           $p = $p + 1
         } else {
           $fetch = true
