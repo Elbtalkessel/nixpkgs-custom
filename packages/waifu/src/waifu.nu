@@ -1,24 +1,18 @@
 #!/usr/bin/env nu
 
-let BASE_URL = "api.waifu.im"
-let TAGS = "/tags"
-let TAGS_CACHE_PATH = "/tmp/waifu.nu.tags.json"
-let SEARCH = "/search"
-
 let HEADERS = {
   "Content-Type": "application/json",
-  "Accept-Version": "v6"
 }
 
 # Builds url including GET params.
 # Params with value null are discarded.
-def get-url [path: string, params = {}]: nothing -> string {
+def get-url [base: string, path: string, query = {}]: nothing -> string {
   {
     "scheme": "https",
-    "host": $BASE_URL,
+    "host": $base,
     "path": $path,
     "params": (
-      $params 
+      $query
       | transpose k v 
       | where $it.v != null 
       | reduce -f {} {|i,a| $a | insert $i.k $i.v}
@@ -33,53 +27,21 @@ def select []: list -> list {
   | lines
 }
 
-# Search for an image(s)
-# https://docs.waifu.im/reference/api-reference/search#search-images.
-# Input: query params, Output: a list of image records.
-def get-search [params = {}]: nothing -> list {
-  let r = (http get -e -f (get-url $SEARCH {
-    is_nsfw: ($params.group == "nsfw"),
-    gif: false,
-    included_tags: $params.tags,
-  }) --headers $HEADERS)
-  if ($r.status != 200) {
-    error make {msg: $r.body.detail}
-  } else {
-    $r.body | get images
-  }
-}
-
-# Builds absolute filepath to save image to or display from.
-# Checks if an image with matching signature present, and
-# returns its file path if does.
-def get-filepath [item: record]: nothing -> string {
-  # check if image present by searching by signature
-  let base = [
-    $env.XDG_PICTURES_DIR, 
-    "waifu", 
-    (if $item.is_nsfw { "nsfw" } else { "sfw" })
+def download-image-url [url: string query: record]: nothing -> string {
+  mut dirname_ = [
+    $env.XDG_PICTURES_DIR,
+    $query.provider,
+    $query.group,
   ]
-  let fpath = (ls ($base | path join) | where name =~ $item.signature)
-  if (($fpath | length) > 0) {
-    $fpath | get name | first
-  } else {
-    $base
-    | append ((
-       $item.tags 
-       | each {|| $in.name}
-       | append $"($item.width)x($item.height).($item.signature)"
-       | str join "."
-      ) + $item.extension)
-    | path join
+  if (($query.tags | length) > 0) {
+    $dirname_ = ($dirname_ | append ($query.tags | first))
   }
-}
+  let dirname = ($dirname_ | path join)
+  mkdir $dirname
 
-def download []: [record -> string, record -> nothing] {
-  let filepath = (get-filepath $in)
-  if ($filepath | path exists) {
-    return $filepath
-  }
-  let url = $in.url
+  let filename = ($url | path basename)
+  let filepath = ([$dirname, $filename] | path join)
+
   try {
     let bytes = (http get $url)
     $bytes | save $filepath
@@ -88,6 +50,48 @@ def download []: [record -> string, record -> nothing] {
     notify-send -u CRITICAL "Waifu" $"Error ($err.msg)"
     print --stderr $err.msg 
     return null
+  }
+}
+
+# Searches for an image for download.
+# Stdin:
+#   { group: string, tags: list<string>, [k in string]: string }
+# Stdout:
+#   { url: string }
+# settings:
+#   { url: string; list: string: name: string; headers: list<string>; groups: record }
+def query-image-url [settings: record, query: record]: nothing -> string {
+  mut url = ""
+  let url = do {|settings, query| 
+    if ($settings.name == "waifu.im") {
+      get-url $settings.base $settings.list {
+        is_nsfw: ($query.group == "nsfw"),
+        gif: false,
+        included_tags: $query.tags,
+      }
+    } else {
+      get-url $settings.base ([$settings.list, $query.group] | str join "/")
+    }
+  } $settings $query
+
+  let r = (http get -e -f $url --headers ($HEADERS | merge ($settings.headers | into record)))
+
+  if ($settings.name == "waifu.im") {
+    if ($r.status != 200) {
+      error make {msg: $r.body.detail}
+    } else {
+      $r.body.images | first | get url
+    }
+  } else {
+    if ($r.status != 200) {
+      error make {msg: $r.body.content}
+    } else {
+      try {
+        $r.body.content.url
+      } catch {
+        error make {msg: $url}
+      }
+    }
   }
 }
 
@@ -153,6 +157,7 @@ def main [provider: string = "waifu"] {
     "group": ($settings.groups | columns | first),
     "tags": [],
     "orientation": "portrait",
+    "provider": $provider,
   }
 
   # re-render on next iteration
@@ -161,9 +166,11 @@ def main [provider: string = "waifu"] {
   # fetch and save image on next iteration
   mut fetch = false
 
+  let basedir = $"($env.XDG_PICTURES_DIR)/($provider)"
+
   # saved images
   mut cache = (
-    ls ...(glob $"($env.XDG_PICTURES_DIR)/($provider)/**/*.*")
+    ls ...(glob $"($basedir)/**/*.*")
     | where type == file
     | sort-by modified
     | get name
@@ -180,20 +187,17 @@ def main [provider: string = "waifu"] {
     if ($fetch) {
       printo (i 'Loading...')
       $render = false
-      try {
-        let fp = (get-search $query | first | download)
-        $cache = ($cache | append $fp)
-        $p = $p + 1
-        $render = true
-      } catch {|e|
-        printo (e $e.msg)
-      }
+      let url = (query-image-url $settings $query)
+      let fp = (download-image-url $url $query)
+      $cache = ($cache | append $fp)
+      $p = $p + 1
+      $render = true
       $fetch = false
     }
 
     if ($render) {
       clear
-      chafa ($cache | get $p) --align mid,mid
+      chafa ($cache | get $p) --align mid,mid --animate off
       display-options $query
       printo (i $"  #($p + 1)")
     }
