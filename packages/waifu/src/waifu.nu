@@ -68,8 +68,7 @@ def printo [s] {
 def download-image-url [url: string state: record]: nothing -> string {
   mut dirname_ = [
     $env.XDG_PICTURES_DIR,
-    $state.provider,
-    $state.group,
+    ($state | format pattern $state.savedir),
   ]
   if (($state.tags | length) > 0) {
     $dirname_ = ($dirname_ | append ($state.tags | first))
@@ -101,10 +100,12 @@ def query-image-url [settings: record, state: record]: nothing -> string {
   let headers = ($HEADERS | merge ($settings.headers | into record))
   
   let url = (build-url $settings.base_url $path $search)
+  print $url
   let r = (http get -e -f $url --headers $headers --raw)
   if ($r.status != 200) {
     error make {msg: ($r.body | jq -r $settings.selectors.error)}
   } else {
+    printo $r.body
     $r.body | jq -r $settings.selectors.image
   }
 }
@@ -128,7 +129,16 @@ def load-state [provider: string]: nothing -> record {
   if ($p | path exists) {
     open $p
   } else {
-    (open $SETTINGS).state | update provider $provider
+    let settings = (open $SETTINGS)
+    let groups = ($settings.providers | get $provider | get groups)
+    let group = ($groups | columns | first)
+    let tag = ($groups | get $group | first)
+    $settings.state | merge {
+      provider: $provider,
+      group: $group,
+      tag: $tag,
+      tags: [$tag],
+    }
   }
 }
 
@@ -146,7 +156,6 @@ def save-state [provider: string, state: record] {
 def display-options [state: record] {
   print ($"
 🌟 Provider        (i $state.provider)
-🌟 Main tag        (i $state.tag)
 
 💦 (_ G)roup           (i $state.group)
 🙃 (_ O)rientation     (i $state.orientation)
@@ -168,7 +177,7 @@ def main [provider: string = "waifu"] {
   mut state = (load-state $provider)
 
   # saved images
-  let savedir = $"($env.XDG_PICTURES_DIR)/($state.provider)"
+  let savedir = $"($env.XDG_PICTURES_DIR)/($state.savedir)"
   mut cache = (
     ls ...(glob $"($savedir)/**/*.*")
     | where type == file
@@ -200,8 +209,9 @@ def main [provider: string = "waifu"] {
       clear
 
       let out = try {
-        chafa ($cache | get $p) --align mid,mid --animate off
-        { ok: true, msg: (i $"  #($p + 1)") }
+        let fp = ($cache | get $p)
+        chafa $fp --align mid,mid --animate off
+        { ok: true, msg: (i $"#($p + 1) ($fp)") }
       } catch {|err|
         { ok: false, msg: (e $err.msg) }
       }
