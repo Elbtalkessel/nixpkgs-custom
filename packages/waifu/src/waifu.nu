@@ -69,15 +69,12 @@ def log [s: string] {
 
 # Requests
 # Download a file from given URL.
-def download-image-url [url: string state: record]: nothing -> string {
-  mut dirname_ = [
+def download-image-url [url: string, state: record, settings: record]: nothing -> string {
+  let dirname = [
     $env.XDG_PICTURES_DIR,
-    $state.savedir,
-  ]
-  if (($state.tags | length) > 0) {
-    $dirname_ = ($dirname_ | append ($state.tags | first))
-  }
-  let dirname = ($dirname_ | path join)
+    $settings.global.savedir.base,
+    ($state | format pattern $settings.global.savedir.path),
+  ] | path join
   mkdir $dirname
 
   let filename = ($url | path basename)
@@ -97,23 +94,23 @@ def download-image-url [url: string state: record]: nothing -> string {
 
 # Searches for an image for download.
 def query-image-url [settings: record, state: record]: nothing -> string {
-  let path = ($state | format pattern $settings.base_path)
-  let search = $settings.query_map
+  let path = ($state | format pattern $settings.x.base_path)
+  let search = $settings.x.query_map
   | transpose k v 
   | reduce -f {} {|it, acc| 
     $acc 
     | insert $it.v ($state | get $it.k)
   }
-  let headers = ($HEADERS | merge ($settings.headers | into record))
+  let headers = ($HEADERS | merge ($settings.x.headers | into record))
   
-  let url = (build-url $settings.base_url $path $search)
+  let url = (build-url $settings.x.base_url $path $search)
   log $"GET ($url)"
   let r = (http get -e -f $url --headers $headers --raw)
   log $"GOT ($r.body)"
   if ($r.status != 200) {
-    error make {msg: ($r.body | jq -r $settings.selectors.error)}
+    error make {msg: ($r.body | jq -r $settings.x.selectors.error)}
   } else {
-    $r.body | jq -r $settings.selectors.image
+    $r.body | jq -r $settings.x.selectors.image
   }
 }
 
@@ -124,7 +121,7 @@ def query-image-url [settings: record, state: record]: nothing -> string {
 def get-settings [provider: string]: nothing -> record {
   let s = (open $SETTINGS)
   try {
-    $s | get providers | get $provider
+    $s | insert x ($s | get providers | get $provider)
   } catch {
     error make { msg: $"Unknow provider ($provider), options are ($s | columns | str join ', ')." }
   }
@@ -137,7 +134,11 @@ def load-state [provider: string]: nothing -> record {
     open $p
   } else {
     let settings = (open $SETTINGS)
-    let groups = ($settings.providers | get $provider | get groups)
+    let groups = (
+      $settings.providers 
+      | get $provider 
+      | get groups
+    )
     let group = ($groups | columns | first)
     let tag = ($groups | get $group | first)
     $settings.state
@@ -147,7 +148,6 @@ def load-state [provider: string]: nothing -> record {
       tag: $tag,
       tags: [$tag],
     }
-    | update savedir {|state| $state | format pattern $state.savedir}
   }
 }
 
@@ -186,7 +186,10 @@ def main [provider: string = "waifu"] {
   mut state = (load-state $provider)
 
   # saved images
-  let appdir = $"($env.XDG_PICTURES_DIR)/($state.savedir | path split | get 0)"
+  let appdir = [
+    $env.XDG_PICTURES_DIR
+    $settings.global.savedir.base
+  ] | path join
   mut cache = (
     ls ...(glob $"($appdir)/**/*.*")
     | where type == file
@@ -207,7 +210,7 @@ def main [provider: string = "waifu"] {
       printo (i 'Loading...')
       $render = false
       let url = (query-image-url $settings $state)
-      let fp = (download-image-url $url $state)
+      let fp = (download-image-url $url $state $settings)
       $cache = ($cache | append $fp)
       $p = $p + 1
       $render = true
@@ -241,8 +244,16 @@ def main [provider: string = "waifu"] {
 
     match (input listen --types [key]).code {
       g => {
-        let g = ($settings.groups | columns | select | first)
-        let t = ($settings.groups | get $g | first)
+        let g = (
+          $settings.x.groups 
+          | columns 
+          | select 
+          | first
+        )
+        if ($g == null) {
+          continue
+        }
+        let t = ($settings.x.groups | get $g | first)
         $state = $state
         | merge {
           group: $g,
@@ -259,8 +270,19 @@ def main [provider: string = "waifu"] {
         $fetch = true
       }
       t => {
-        let tags = ($settings.groups | get $state.group | select)
-        $state = $state | merge {tags: $tags, tag: ($tags | first)}
+        let tag = (
+          $settings.x.groups 
+          | get $state.group 
+          | select
+          | first
+        )
+        if ($tag == null) {
+          continue
+        }
+        $state = (
+          $state 
+          | merge { tags: [$tag], tag: $tag }
+        )
         $fetch = true
       }
       c => {
