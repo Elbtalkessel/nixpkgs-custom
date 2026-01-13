@@ -198,18 +198,37 @@ def main [provider: string = "waifu"] {
 
     if ($render) {
       clear
-      chafa ($cache | get $p) --align mid,mid --animate off
+
+      let out = try {
+        chafa ($cache | get $p) --align mid,mid --animate off
+        { ok: true, msg: (i $"  #($p + 1)") }
+      } catch {|err|
+        { ok: false, msg: (e $err.msg) }
+      }
+
       display-options $state
-      printo (i $"  #($p + 1)")
+      printo $out.msg
+
+      if not $out.ok {
+        try { rm ($cache | get $p) }
+        $cache = $cache | slice 0..-2
+        if ($p > 0) {
+          $p = $p - 1
+        }
+        $fetch = true;
+        continue
+      }
     }
 
     match (input listen --types [key]).code {
       g => {
+        let g = ($settings.groups | columns | select | first)
+        let t = ($settings.groups | get $g | first)
         $state = $state
         | merge {
-          group: ($settings.groups | columns | select | first),
-          tags: [],
-          tag: ""
+          group: $g,
+          tags: [$t],
+          tag: $t
         }
         $fetch = true
       }
