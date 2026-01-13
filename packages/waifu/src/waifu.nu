@@ -58,7 +58,11 @@ def rpad [s] {
 
 # Prints on top of previous value.
 def printo [s] {
-  print -n $"\r(rpad $s)"
+  print $"\r(rpad $s)"
+}
+
+def log [s: string] {
+  print $"(ansi dgrd)($s)(ansi reset)"
 }
 
 # ---
@@ -80,10 +84,13 @@ def download-image-url [url: string state: record]: nothing -> string {
   let filepath = ([$dirname, $filename] | path join)
 
   if ($filepath | path exists) {
+    log $"EXISTS ($filepath)"
     return $filepath
   }
-
+  
+  log $"GET ($url)"
   let bytes = (http get $url)
+  log $"SAVE ($filepath)"
   $bytes | save $filepath
   return $filepath
 }
@@ -100,12 +107,12 @@ def query-image-url [settings: record, state: record]: nothing -> string {
   let headers = ($HEADERS | merge ($settings.headers | into record))
   
   let url = (build-url $settings.base_url $path $search)
-  print $url
+  log $"GET ($url)"
   let r = (http get -e -f $url --headers $headers --raw)
+  log $"GOT ($r.body)"
   if ($r.status != 200) {
     error make {msg: ($r.body | jq -r $settings.selectors.error)}
   } else {
-    printo $r.body
     $r.body | jq -r $settings.selectors.image
   }
 }
