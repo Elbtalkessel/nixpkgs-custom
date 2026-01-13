@@ -72,7 +72,7 @@ def log [s: string] {
 def download-image-url [url: string state: record]: nothing -> string {
   mut dirname_ = [
     $env.XDG_PICTURES_DIR,
-    ($state | format pattern $state.savedir),
+    $state.savedir,
   ]
   if (($state.tags | length) > 0) {
     $dirname_ = ($dirname_ | append ($state.tags | first))
@@ -140,12 +140,14 @@ def load-state [provider: string]: nothing -> record {
     let groups = ($settings.providers | get $provider | get groups)
     let group = ($groups | columns | first)
     let tag = ($groups | get $group | first)
-    $settings.state | merge {
+    $settings.state
+    | merge {
       provider: $provider,
       group: $group,
       tag: $tag,
       tags: [$tag],
     }
+    | update savedir {|state| $state | format pattern $state.savedir}
   }
 }
 
@@ -184,9 +186,9 @@ def main [provider: string = "waifu"] {
   mut state = (load-state $provider)
 
   # saved images
-  let savedir = $"($env.XDG_PICTURES_DIR)/($state.savedir)"
+  let appdir = $"($env.XDG_PICTURES_DIR)/($state.savedir | path split | get 0)"
   mut cache = (
-    ls ...(glob $"($savedir)/**/*.*")
+    ls ...(glob $"($appdir)/**/*.*")
     | where type == file
     | sort-by modified
     | get name
