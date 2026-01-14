@@ -114,6 +114,11 @@ def query-image-url [settings: record, state: record]: nothing -> string {
   }
 }
 
+def request-image [settings: record, state: record]: nothing -> string {
+  let url = (query-image-url $settings $state)
+  download-image-url $url $state $settings
+}
+
 # ----
 
 # State / settings management
@@ -209,8 +214,7 @@ def main [provider: string = "waifu"] {
     if ($fetch) {
       printo (i 'Loading...')
       $render = false
-      let url = (query-image-url $settings $state)
-      let fp = (download-image-url $url $state $settings)
+      let fp = request-image $settings $state
       $cache = ($cache | append $fp)
       $p = $p + 1
       $render = true
