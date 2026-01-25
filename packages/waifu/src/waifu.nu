@@ -105,7 +105,18 @@ def query-image-url [settings: record, state: record]: nothing -> string {
   
   let url = (build-url $settings.x.base_url $path $search)
   log $"GET ($url)"
-  let r = (http get -e -f $url --headers $headers --raw)
+  mut r = null
+  if ($settings.x.request.server == "stash") {
+    let cq = { query: ($settings.x.request.count_query | str replace -rma '\s' '') }
+    log ($cq | to json)
+    let cr = (http post --content-type application/json -e -f $url --headers $headers --raw $cq)
+    log $"GOT ($cr.body)"
+    let page = (random int 0..($cr.body | jq -r $settings.x.selectors.count | into int)) | into string
+    let iq = { query: ($settings.x.request.image_query | str replace '{page}' $page | str replace -rma '\s' '') }
+    $r = http post --content-type application/json -e -f $url --headers $headers --raw $iq
+  } else {
+    $r = (http get -e -f $url --headers $headers --raw)
+  }
   log $"GOT ($r.body)"
   if ($r.status != 200) {
     error make {msg: ($r.body | jq -r $settings.x.selectors.error)}

@@ -1,0 +1,14 @@
+[project]
+name = "pytagdb"
+version = "0.1.0"
+description = "Tagging files without relying on the file path"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "sqlalchemy>=2.0.46",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
