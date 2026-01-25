@@ -13,28 +13,23 @@ def setup_database():
     Model.metadata.create_all(engine)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def db_connection() -> typing.Generator[sa.Connection]:
-    conn = engine.connect()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-@pytest.fixture(scope="function", autouse=True)
-def db_transaction(db_connection: sa.Connection) -> typing.Generator[NestedTransaction]:
-    trans = db_connection.begin_nested()
-    try:
-        yield trans
-    finally:
-        trans.rollback()
-
-
 @pytest.fixture(scope="function")
-def db_session(db_connection: sa.Connection) -> typing.Generator[orm.Session]:
-    sess = Session(bind=db_connection, join_transaction_mode="create_savepoint")
+def db_session():
+    # See https://docs.sqlalchemy.org/en/20/orm/session_transaction.html#joining-a-session-into-an-external-transaction-such-as-for-test-suites
+    # join_transaction_mode="create_savepoint" gives error
+
+    connection = engine.connect()
+    transaction = connection.begin()
+
+    # Create a new session
+    session = Session(bind=connection)
+
     try:
-        yield sess
+        yield session
     finally:
-        sess.close()
+        # rollback - everything that happened with the
+        # Session above (including calls to commit())
+        # is rolled back.
+        session.close()
+        transaction.rollback()
+        connection.close()
