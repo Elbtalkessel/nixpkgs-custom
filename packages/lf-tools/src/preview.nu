@@ -93,18 +93,15 @@ def with-tags [f: string, w: number]: string -> string {
       | uniq
       # Decorate each tag with a background.
       | each {|it| $"(ansi pr) ($it) (ansi rst)"}
-      # Reduce to a single string.
       | reduce --fold {o: "", c: 0} {|it, acc|
         # Account for a space after each tag.
         let cl = ($it | ansi strip | str length) + 1
         if ($acc.o == "") {
-          # First iteration.
           { o: $it, c: 0 }
         # Count the length of the next string, if overflows - add newline.
-        # 5 is a "magic" number, this counting mechanism doesn't work, afaik
+        # 7 is a "magic" number, this counting mechanism doesn't work, afaik
         # `w` is a number of cols = number of characters
-        } else if (($acc.c + $cl) >= ($w - 5)) {
-          # String overflows max width, render it on next line.
+        } else if (($acc.c + $cl) >= ($w - 7)) {
           { o: $"($acc.o)\n($it)", c: 0 }
         } else {
           { o: $"($acc.o) ($it)", c: ($acc.c + $cl) }
