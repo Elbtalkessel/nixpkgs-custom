@@ -95,7 +95,8 @@ def with-tags [f: string, w: number]: string -> string {
       | each {|it| $"(ansi pr) ($it) (ansi rst)"}
       # Reduce to a single string.
       | reduce --fold {o: "", c: 0} {|it, acc|
-        let cl = $it | ansi strip | str length
+        # Account for a space after each tag.
+        let cl = ($it | ansi strip | str length) + 1
         if ($acc.o == "") {
           # First iteration.
           { o: $it, c: 0 }
