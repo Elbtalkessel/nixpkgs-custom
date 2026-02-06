@@ -47,7 +47,7 @@ def to-mime [f: string]: nothing -> record {
 
 # <- image bytes 
 # -> bytes in sixel format
-def to-sixel [w: number, h: number]: binary -> binary {
+def to-sixel [w: number, h: number]: string -> string {
   $in 
   | chafa -f sixel -s $"($w)x($h)" --animate off --polite on
 }
@@ -70,6 +70,31 @@ def get-exif-info [f: string, fields: list<string>]: nothing -> string {
     }
   } 
   | str join "\n"
+}
+
+
+# Appends to a string input its tags (if any).
+# Separates both by newline.
+def with-tags [f: string]: string -> string {
+  let r = do -i { tmsu tags -1 $f } | complete
+  if ($r.exit_code != 0) {
+    return $in
+  }
+  let tags = (
+    $r.stdout
+    | lines --skip-empty
+    # If several files passed, tmsu will print in format:
+    #   <filename>:
+    #   tag
+    #   ...
+    # Normally it shouldn't happen here.
+    | where {|it| not ($it | str ends-with ":")}
+    | uniq
+    # Decorate each tag with a background.
+    | each {|it| $"(ansi pr) ($it) (ansi rst)"}
+    | str join " "
+  )
+  $in + "\n" + $tags
 }
 
 
@@ -98,7 +123,7 @@ def main [
     x-archive => (ouch l $f)
     audio => (get-exif-info $f $AUDIO_EXIF)
     video => (to-thumbnail $f | to-sixel $w $h)
-    image => (open $f | to-sixel $w $h)
+    image => (open $f | to-sixel $w $h | with-tags $f)
     _ => (bat --color=always --style=plain --pager=never $f)
   }
 }

@@ -12,6 +12,7 @@
       ouch
       chafa
       ffmpegthumbnailer
+      tmsu
     ];
     text = builtins.readFile ./src/preview.nu;
     meta = {
