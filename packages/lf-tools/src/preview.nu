@@ -47,7 +47,7 @@ def to-mime [f: string]: nothing -> record {
 
 # <- image bytes 
 # -> bytes in sixel format
-def to-sixel [w: number, h: number]: string -> string {
+def to-sixel [w: number, h: number]: binary -> string {
   $in 
   | chafa -f sixel -s $"($w)x($h)" --animate off --polite on
 }
@@ -77,24 +77,24 @@ def get-exif-info [f: string, fields: list<string>]: nothing -> string {
 # Separates both by newline.
 def with-tags [f: string]: string -> string {
   let r = do -i { tmsu tags -1 $f } | complete
-  if ($r.exit_code != 0) {
-    return $in
+  mut tags = ""
+  if ($r.exit_code == 0) {
+   $tags = "\n" + (
+     $r.stdout
+     | lines --skip-empty
+     # If several files passed, tmsu will print in format:
+     #   <filename>:
+     #   tag
+     #   ...
+     # Normally it shouldn't happen here.
+     | where {|it| not ($it | str ends-with ":")}
+     | uniq
+     # Decorate each tag with a background.
+     | each {|it| $"(ansi pr) ($it) (ansi rst)"}
+     | str join " "
+   )
   }
-  let tags = (
-    $r.stdout
-    | lines --skip-empty
-    # If several files passed, tmsu will print in format:
-    #   <filename>:
-    #   tag
-    #   ...
-    # Normally it shouldn't happen here.
-    | where {|it| not ($it | str ends-with ":")}
-    | uniq
-    # Decorate each tag with a background.
-    | each {|it| $"(ansi pr) ($it) (ansi rst)"}
-    | str join " "
-  )
-  $in + "\n" + $tags
+  $in + $tags
 }
 
 
