@@ -123,7 +123,7 @@ def main [
     x-archive => (ouch l $f)
     audio => (get-exif-info $f $AUDIO_EXIF)
     video => (to-thumbnail $f | to-sixel $w $h)
-    image => (open $f | to-sixel $w $h | with-tags $f)
+    image => (open $f | to-sixel $w ($h - 5) | with-tags $f)
     _ => (bat --color=always --style=plain --pager=never $f)
   }
 }
