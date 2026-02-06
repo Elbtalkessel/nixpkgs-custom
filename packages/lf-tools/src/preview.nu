@@ -46,7 +46,7 @@ def to-mime [f: string]: nothing -> record {
 
 
 # <- image bytes 
-# -> bytes in sixel format
+# -> sixel string
 def to-sixel [w: number, h: number]: binary -> string {
   $in 
   | chafa -f sixel -s $"($w)x($h)" --animate off --polite on
@@ -75,23 +75,38 @@ def get-exif-info [f: string, fields: list<string>]: nothing -> string {
 
 # Appends to a string input its tags (if any).
 # Separates both by newline.
-def with-tags [f: string]: string -> string {
+# f a file path
+# w window width
+def with-tags [f: string, w: number]: string -> string {
   let r = do -i { tmsu tags -1 $f } | complete
   mut tags = ""
   if ($r.exit_code == 0) {
    $tags = "\n" + (
      $r.stdout
-     | lines --skip-empty
-     # If several files passed, tmsu will print in format:
-     #   <filename>:
-     #   tag
-     #   ...
-     # Normally it shouldn't happen here.
-     | where {|it| not ($it | str ends-with ":")}
-     | uniq
-     # Decorate each tag with a background.
-     | each {|it| $"(ansi pr) ($it) (ansi rst)"}
-     | str join " "
+      | lines --skip-empty
+      # If several files passed, tmsu will print in format:
+      #   <filename>:
+      #   tag
+      #   ...
+      # Normally it shouldn't happen here.
+      | where {|it| not ($it | str ends-with ":")}
+      | uniq
+      # Decorate each tag with a background.
+      | each {|it| $"(ansi pr) ($it) (ansi rst)"}
+      # Reduce to a single string.
+      | reduce --fold {o: "", c: 0} {|it, acc|
+        let cl = $it | ansi strip | str length
+        if ($acc.o == "") {
+          # First iteration.
+          { o: $it, c: 0 }
+        } else if (($acc.c + $cl) >= $w) {
+          # String overflows max width, render it on next line.
+          { o: $"($acc.o)\n($it)", c: 0 }
+        } else {
+          { o: $"($acc.o) ($it)", c: ($acc.c + $cl) }
+        }
+      }
+      | get o
    )
   }
   $in + $tags
@@ -123,7 +138,7 @@ def main [
     x-archive => (ouch l $f)
     audio => (get-exif-info $f $AUDIO_EXIF)
     video => (to-thumbnail $f | to-sixel $w $h)
-    image => (open $f | to-sixel $w ($h - 5) | with-tags $f)
+    image => (open $f | to-sixel $w ($h - 5) | with-tags $f $w)
     _ => (bat --color=always --style=plain --pager=never $f)
   }
 }
