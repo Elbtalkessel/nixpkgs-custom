@@ -100,7 +100,10 @@ def with-tags [f: string, w: number]: string -> string {
         if ($acc.o == "") {
           # First iteration.
           { o: $it, c: 0 }
-        } else if (($acc.c + $cl) >= $w) {
+        # Count the length of the next string, if overflows - add newline.
+        # 5 is a "magic" number, this counting mechanism doesn't work, afaik
+        # `w` is a number of cols = number of characters
+        } else if (($acc.c + $cl) >= ($w - 5)) {
           # String overflows max width, render it on next line.
           { o: $"($acc.o)\n($it)", c: 0 }
         } else {
