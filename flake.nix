@@ -15,8 +15,6 @@
       ...
     }:
     let
-      _ = builtins;
-
       supportedSystems = [ "x86_64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       pkgsFor =
@@ -35,9 +33,9 @@
       # and returns an absolute paths to each <package-name>/
       rcd =
         p:
-        _.readDir p
+        builtins.readDir p
         |> nixpkgs.lib.filterAttrs (_: val: val == "directory")
-        |> _.attrNames
+        |> builtins.attrNames
         |> map (v: nixpkgs.lib.path.append p v);
       pp = rcd ./packages |> map rcd |> nixpkgs.lib.flatten;
 
@@ -46,9 +44,9 @@
         let
           pkgs = pkgsFor system;
         in
-        _.listToAttrs (
+        builtins.listToAttrs (
           map (p: {
-            name = (_.baseNameOf p);
+            name = (baseNameOf p);
             value = pkgs.callPackage p { };
           }) pp
         );
@@ -64,8 +62,8 @@
         in
         builtins.listToAttrs (
           map (p: {
-            name = (_.baseNameOf p);
-            value = pkgs.${_.baseNameOf p};
+            name = (baseNameOf p);
+            value = pkgs.${baseNameOf p};
           }) pp
         );
     };
