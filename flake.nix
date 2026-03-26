@@ -65,7 +65,7 @@
         builtins.listToAttrs (
           map (p: {
             name = (_.baseNameOf p);
-            value = pkgs.${p};
+            value = pkgs.${_.baseNameOf p};
           }) pp
         );
     };
