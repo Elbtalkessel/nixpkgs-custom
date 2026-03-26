@@ -39,7 +39,7 @@
         |> nixpkgs.lib.filterAttrs (_: val: val == "directory")
         |> _.attrNames
         |> map (v: nixpkgs.lib.path.append p v);
-      packages = rcd ./packages |> map rcd |> nixpkgs.lib.flatten;
+      pp = rcd ./packages |> map rcd |> nixpkgs.lib.flatten;
 
       makePackages =
         system:
@@ -50,7 +50,7 @@
           map (p: {
             name = (_.baseNameOf p);
             value = pkgs.callPackage p { };
-          }) packages
+          }) pp
         );
     in
     {
@@ -66,7 +66,7 @@
           map (p: {
             name = (_.baseNameOf p);
             value = pkgs.${p};
-          }) packages
+          }) pp
         );
     };
 }
