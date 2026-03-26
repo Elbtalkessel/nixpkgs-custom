@@ -15,6 +15,8 @@
       ...
     }:
     let
+      _ = builtins;
+
       supportedSystems = [ "x86_64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       pkgsFor =
@@ -24,19 +26,31 @@
           overlays = [ nuenv.overlays.default ];
         };
 
-      # Helper function to list package names by reading the packages/ directory
-      packageNames = builtins.attrNames (builtins.readDir ./packages);
+      # Packages structure as follows:
+      # packages/
+      #   <package-group>/
+      #     <package-name>/
+      #       default.nix
+      # Read children directory function reads a given path (./packages)
+      # and returns an absolute paths to each <package-name>/
+      rcd =
+        p:
+        _.readDir p
+        |> nixpkgs.lib.filterAttrs (_: val: val == "directory")
+        |> _.attrNames
+        |> nixpkgs.lib.imap0 (_: v: nixpkgs.lib.path.append p v);
+      packages = rcd ./packages |> nixpkgs.lib.imap (_: rcd) |> nixpkgs.lib.flatten;
 
       makePackages =
         system:
         let
           pkgs = pkgsFor system;
         in
-        builtins.listToAttrs (
-          map (name: {
-            inherit name;
-            value = pkgs.callPackage ./packages/${name} { };
-          }) packageNames
+        _.listToAttrs (
+          map (p: {
+            name = (_.baseNameOf p);
+            value = pkgs.callPackage p { };
+          }) packages
         );
     in
     {
@@ -50,9 +64,9 @@
         in
         builtins.listToAttrs (
           map (p: {
-            name = p;
+            name = (_.baseNameOf p);
             value = pkgs.${p};
-          }) packageNames
+          }) packages
         );
     };
 }
