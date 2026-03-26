@@ -146,10 +146,14 @@ def request-image [settings: record, state: record]: nothing -> record {
 
 # State / settings management
 # Load settings file and retrive provider from it.
-def get-settings [provider: string]: nothing -> record {
+def get-settings [provider?: string]: nothing -> record {
   let s = (open $SETTINGS)
+  let p = if ($provider == null) { $s.state.provider } else { $provider }
   try {
-    $s | insert x ($s | get providers | get $provider)
+    {
+      settings: ($s | insert x ($s.providers | get $p)),
+      provider: $p,
+    }
   } catch {
     error make { msg: $"Unknow provider ($provider), options are ($s | columns | str join ', ')." }
   }
@@ -201,22 +205,50 @@ def display-options [state: record] {
 👈 (_ b)ack            show previous image
 👉 (_ f)orward         navigate to the next image or fetch new one
 🫵 (_ c)opy            copy image path to the clipboard
-🫰 (_ w)allpaper       set as wallpaper
 🤌 (_ q)uit            exit program
 📄 (_ j)ump            jump to a page
 ")
 }
 
-# Picture download and view.
-def main [provider: string = "waifu"] {
+# List available providers.
+def "main providers" []: nothing -> string {
+  (open $SETTINGS).providers
+  | columns
+  | str join "\n"
+}
+
+# List available tags for a given provider.
+def "main tags" [provider: string] {
+  (open $SETTINGS).providers
+  | get $provider
+  | get groups
+  | transpose name tags
+  | each {|it|
+    $it.tags | each {|tag| $"($it.name)\t($tag)"}
+  }
+  | flatten
+  | str join "\n"
+}
+
+# Creates setting file if missing
+def "main init" [] {
+  if ($SETTINGS | path exists) {
+    print -e $"($SETTINGS) already exists, not overriding."
+    exit 1
+  } else {
+  }
+}
+
+# Generic image downloader and previewer.
+def main [provider?: string] {
   # immutable and mutable states
-  let settings = (get-settings $provider)
-  mut state = (load-state $provider)
+  let conf = (get-settings $provider)
+  mut state = (load-state $conf.provider)
 
   # saved images
   let appdir = [
     $env.XDG_PICTURES_DIR
-    $settings.global.savedir.base
+    $conf.settings.global.savedir.base
   ] | path join
   mut cache = (
     ls ...(glob $"($appdir)/**/*.*")
@@ -237,7 +269,7 @@ def main [provider: string = "waifu"] {
     if ($fetch) {
       printo (i 'Loading...')
       $render = false
-      let r = request-image $settings $state
+      let r = request-image $conf.settings $state
       if ($r.ok) {
         $cache = ($cache | append $r.local)
         $p = $p + 1
@@ -278,7 +310,7 @@ def main [provider: string = "waifu"] {
     match (input listen --types [key]).code {
       g => {
         let g = (
-          $settings.x.groups 
+          $conf.settings.x.groups 
           | columns 
           | select 
           | first
@@ -286,7 +318,7 @@ def main [provider: string = "waifu"] {
         if ($g == null) {
           continue
         }
-        let t = ($settings.x.groups | get $g | first)
+        let t = ($conf.settings.x.groups | get $g | first)
         $state = $state
         | merge {
           group: $g,
@@ -304,7 +336,7 @@ def main [provider: string = "waifu"] {
       }
       t => {
         let tag = (
-          $settings.x.groups 
+          $conf.settings.x.groups 
           | get $state.group 
           | select
           | first
@@ -323,11 +355,6 @@ def main [provider: string = "waifu"] {
         printo (s $"💕 ctrl-c! ($cache | get $p)")
         $render = false
       }
-      w => {
-        setbg ($cache | get $p) | ignore
-        printo (s "💕 wallpaper set")
-        $render = false
-      }
       j => {
         let total = $cache | length
         printo $"[($p + 1)/($total)]: "
@@ -344,7 +371,7 @@ def main [provider: string = "waifu"] {
           printo (e $"($e.msg)")
         }
       }
-      q|esc => (save-state $provider $state; clear; break)
+      q|esc => (save-state $conf.provider $state; clear; break)
       b => {
         if ($p != 0) {
           $p = $p - 1
