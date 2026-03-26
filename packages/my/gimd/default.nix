@@ -1,15 +1,16 @@
 { pkgs }:
 pkgs.nuenv.writeShellApplication rec {
-  name = "waifu";
-  text = builtins.readFile ./src/waifu.nu;
+  name = "gimd";
+  text = builtins.readFile ./src/gimd.nu;
 
   runtimeInputs = with pkgs; [
     chafa
     jq
+    fzf
   ];
 
   meta = {
     mainProgram = name;
-    description = "Waifu downloader";
+    description = "Generic Image Downloader";
   };
 }

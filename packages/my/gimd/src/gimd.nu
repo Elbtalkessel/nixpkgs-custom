@@ -1,7 +1,7 @@
 #!/usr/bin/env nu
 
 let HEADERS = { "Content-Type": "application/json" }
-let SETTINGS = $"($env.XDG_CONFIG_HOME)/wpdl/wpdlrc.yaml"
+let SETTINGS = $"($env.XDG_CONFIG_HOME)/gimd/gimdrc.yaml"
 
 # Utilities
 
@@ -185,7 +185,7 @@ def load-state [provider: string]: nothing -> record {
 
 # Save state into a file.
 def save-state [provider: string, state: record] {
-  let statedir = ([$env.XDG_STATE_HOME, "wpdl"] | path join)
+  let statedir = ([$env.XDG_STATE_HOME, "gimd"] | path join)
   mkdir $statedir
   let p = ([$statedir, $"($provider).json"] | path join)
   $state | save -f $p
@@ -228,15 +228,6 @@ def "main tags" [provider: string] {
   }
   | flatten
   | str join "\n"
-}
-
-# Creates setting file if missing
-def "main init" [] {
-  if ($SETTINGS | path exists) {
-    print -e $"($SETTINGS) already exists, not overriding."
-    exit 1
-  } else {
-  }
 }
 
 # Generic image downloader and previewer.
