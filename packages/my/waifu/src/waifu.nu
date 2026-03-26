@@ -125,9 +125,21 @@ def query-image-url [settings: record, state: record]: nothing -> string {
   }
 }
 
-def request-image [settings: record, state: record]: nothing -> string {
-  let url = (query-image-url $settings $state)
-  download-image-url $url $state $settings
+def request-image [settings: record, state: record]: nothing -> record {
+  try {
+    let url = (query-image-url $settings $state)
+    {
+      local: (download-image-url $url $state $settings),
+      ok: true,
+      err: "",
+    }
+  } catch {|err| 
+    {
+      local: "",
+      ok: false,
+      err: $err.msg,
+    }
+  }
 }
 
 # ----
@@ -225,11 +237,17 @@ def main [provider: string = "waifu"] {
     if ($fetch) {
       printo (i 'Loading...')
       $render = false
-      let fp = request-image $settings $state
-      $cache = ($cache | append $fp)
-      $p = $p + 1
-      $render = true
-      $fetch = false
+      let r = request-image $settings $state
+      if ($r.ok) {
+        $cache = ($cache | append $r.local)
+        $p = $p + 1
+        $render = true
+        $fetch = false
+      } else {
+        printo (e $r.err)
+        $render = false
+        $fetch = false
+      }
     }
 
     if ($render) {
