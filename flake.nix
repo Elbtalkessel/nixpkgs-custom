@@ -38,8 +38,8 @@
         _.readDir p
         |> nixpkgs.lib.filterAttrs (_: val: val == "directory")
         |> _.attrNames
-        |> nixpkgs.lib.imap0 (_: v: nixpkgs.lib.path.append p v);
-      packages = rcd ./packages |> nixpkgs.lib.imap (_: rcd) |> nixpkgs.lib.flatten;
+        |> map (v: nixpkgs.lib.path.append p v);
+      packages = rcd ./packages |> map rcd |> nixpkgs.lib.flatten;
 
       makePackages =
         system:
