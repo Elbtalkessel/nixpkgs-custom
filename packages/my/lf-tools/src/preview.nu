@@ -49,7 +49,7 @@ def to-mime [f: string]: nothing -> record {
 # -> sixel string
 def to-sixel [w: number, h: number]: binary -> string {
   $in 
-  | chafa -f sixel -s $"($w)x($h)" --animate off --polite on
+  | chafa -s $"($w)x($h)" --animate off --polite on
 }
 
 
