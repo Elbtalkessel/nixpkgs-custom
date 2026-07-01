@@ -13,6 +13,7 @@
       chafa
       ffmpegthumbnailer
       tmsu
+      fontconfig
     ];
     text = builtins.readFile ./src/preview.nu;
     meta = {

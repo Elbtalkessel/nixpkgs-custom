@@ -23,15 +23,21 @@ let ARCHIVE_MTYPE = [
   x-compressed-tar
 ]
 
+def identify-file [f: string]: nothing -> string {
+  {
+    # Mimeo identify it as application/vnd.oasis.opendocument.formula-template
+    "otf": "font/otf"
+  }
+  | get -o ($f | path parse | get extension)
+  | default (mimeo -m $f | lines | last | str trim)
+}
+
 
 # extracts mime
 def to-mime [f: string]: nothing -> record {
   # <file/path>
   #   <mime/type>
-  mimeo -m $f
-  | lines
-  | last
-  | str trim
+  identify-file $f
   | parse "{major}/{minor}"
   | each {|mtype|
     # replacing major (likely generic "application" keyword) with "x-archive".
@@ -140,6 +146,7 @@ def main [
     audio => (get-exif-info $f $AUDIO_EXIF)
     video => (to-thumbnail $f | to-sixel $w $h)
     image => (open $f | to-sixel $w ($h - 5) | with-tags $f $w)
+    font => (fc-scan $f --format "Family\t%{family}\nStyle\t%{style}\nName\t%{fullname}\nLang\t%{familylang}\t")
     _ => (bat --color=always --style=plain --pager=never $f)
   }
 }
